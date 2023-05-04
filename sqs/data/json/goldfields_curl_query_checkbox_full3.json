@@ -1,0 +1,89 @@
+{
+  "masterlist_questions": [
+    {
+      "layer_name": "cddp:dpaw_regions",
+      "questions": [
+	{   "id": 3,
+	    "question": "1.0 Proposal title",
+	    "answer_mlq": "",
+	    "layer_name": "cddp:dpaw_regions",
+	    "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+	    "expiry": "2024-01-01",
+	    "visible_to_proponent": true,
+	    "buffer": 300,
+	    "how": "Overlapping",
+	    "column_name": "region",
+	    "operator": "Equals",
+	    "value": "GOLDFIELDS",
+	    "prefix_answer": "nan",
+	    "no_polygons_proponent": -1,
+	    "answer": "nan",
+	    "prefix_info": "2.0",
+	    "no_polygons_assessor": 1,
+	    "assessor_info": "d",
+	    "regions": "All"
+        }
+
+
+      ]
+    }
+  ],
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                124.12353515624999,
+                -30.391830328088137
+              ],
+              [
+                124.03564453125,
+                -31.672083485607377
+              ],
+              [
+                126.69433593749999,
+                -31.615965936476076
+              ],
+              [
+                127.17773437499999,
+                -29.688052749856787
+              ],
+              [
+                124.12353515624999,
+                -30.391830328088137
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "proposal": {
+    "schema": [
+      {
+        "name": "proposalSummarySection",
+        "type": "section",
+        "label": "1. Proposal Summary",
+        "children": [
+          {
+            "name": "Section0-0",
+            "type": "text",
+            "label": "1.0 Proposal title",
+            "isRequired": "true",
+            "help_text_url": "site_url:/help/disturbance/user/anchor=Section0-0",
+            "_help_text_assessor_url": "site_url:/help/disturbance/assessor/anchor=Section0-0",
+            "isTitleColumnForDashboard": true
+          }
+        ]
+      }    ],
+    "data": [
+      {}
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{%  extends 'sqs/emails/base_email.txt' %}
+
+{%  block content %}
+	{% if proposal.is_filming_application %}
+		Your application for a commercial filming authority has been submitted, the application number is {{ proposal.lodgement_number }}
+
+		Submitter: {{ proposal.submitter.get_full_name }}
+		Lodgement date: {{ proposal.lodgement_date }}
+
+		
+			Please note it may take up to 21 days to process your application.
+		
+			
+			You will receive a notification email if there is any incomplete information or documents missing from the application.
+		
+		If you would like to amend the application now please contact a licensing office on {{settings.DEP_PHONE_FILMING}} or email {{settings.SUPPORT_EMAIL_FILMING}}
+	
+	{% elif proposal.is_event_application %}
+		Your Application for a commercial operations licence has been submitted, the application number is {{ proposal.lodgement_number }}
+
+		Submitter: {{ proposal.submitter.get_full_name }}
+		Lodgement date: {{ proposal.lodgement_date }}
+
+		
+			It may take up to 6 weeks to process your application.
+		
+
+		
+			You will receive a notification email if there is any incomplete information or documents missing from the application.
+		
+		If you would like to amend the application now please contact a licensing office on {{settings.DEP_PHONE_FILMING}} or email {{settings.SUPPORT_EMAIL}}
+
+	{% else %}
+
+	    Your Application for a commercial operations licence has been submitted, the application number is {{ proposal.lodgement_number }}
+
+		Submitter: {{ proposal.submitter.get_full_name }}
+		Lodgement date: {{ proposal.lodgement_date }}
+
+		
+			It may take up to 2 weeks to process your application.
+		
+
+		
+			You will receive a notification email if there is any incomplete information or documents missing from the application.
+		
+		If you would like to amend the application now please contact a licensing office on {{settings.DEP_PHONE}} or email {{settings.SUPPORT_EMAIL}}
+	{% endif %}
+
+{%  endblock %}

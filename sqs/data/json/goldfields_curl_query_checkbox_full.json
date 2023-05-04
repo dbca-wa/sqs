@@ -1,0 +1,288 @@
+{
+  "masterlist_questions": [
+    {
+      "layer_name": "cddp:dpaw_regions",
+      "questions": [
+        {
+          "id": 1,
+          "question": "2.0 What is the land tenure or classification?",
+          "answer_mlq": "National park",
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "expiry": "",
+          "visible_to_proponent": true,
+          "buffer": 100,
+          "how": "Overlapping",
+          "widget_type": "checkbox",
+          "column_name": "region",
+          "operator": "IsNotNull",
+          "no_polygons_proponent": 1,
+          "regions": "All"
+        },
+        {
+          "id": 2,
+          "question": "3.0 Another Checkbox Question?",
+          "answer_mlq": "National park",
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "expiry": "",
+          "visible_to_proponent": true,
+          "buffer": 100,
+          "how": "Overlapping",
+          "widget_type": "checkbox",
+          "column_name": "region",
+          "operator": "IsNotNull",
+          "no_polygons_proponent": 2,
+          "regions": "All"
+        }
+
+      ]
+    },
+    {
+      "layer_name": "cddp:local_gov_authority",
+      "questions": [
+        {
+          "id": 3,
+          "question": "2.0 What is the land tenure or classification?",
+          "answer_mlq": "Nature reserve",
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "expiry": "",
+          "visible_to_proponent": true,
+          "buffer": 100,
+          "how": "Overlapping",
+          "widget_type": "checkbox",
+          "column_name": "lga_label",
+          "operator": "IsNotNull",
+          "no_polygons_proponent": 1,
+          "regions": "All"
+        },
+        {
+          "id": 4,
+          "question": "3.0 Another Checkbox Question?",
+          "answer_mlq": "National park",
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "expiry": "",
+          "visible_to_proponent": true,
+          "buffer": 100,
+          "how": "Overlapping",
+          "widget_type": "checkbox",
+          "column_name": "lga_label",
+          "operator": "IsNotNull",
+          "no_polygons_proponent": 1,
+          "regions": "All"
+        }
+
+      ]
+    }
+  ],
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {},
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                124.12353515624999,
+                -30.391830328088137
+              ],
+              [
+                124.03564453125,
+                -31.672083485607377
+              ],
+              [
+                126.69433593749999,
+                -31.615965936476076
+              ],
+              [
+                127.17773437499999,
+                -29.688052749856787
+              ],
+              [
+                124.12353515624999,
+                -30.391830328088137
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "proposal": {
+	  "id": 1503,
+	  "schema": [
+	    {
+	      "name": "proposalSummarySection",
+	      "type": "section",
+	      "label": "1. Proposal Summary",
+	      "children": [
+		{
+		  "name": "Section0-0",
+		  "type": "text",
+		  "label": "1.0 Proposal title",
+		  "isRequired": "true",
+		  "help_text_url": "site_url:/help/disturbance/user/anchor=Section0-0",
+		  "_help_text_assessor_url": "site_url:/help/disturbance/assessor/anchor=Section0-0",
+		  "isTitleColumnForDashboard": true
+		}
+	      ]
+	    },
+	    {
+	      "name": "Section1-2",
+	      "type": "multi-select",
+	      "label": "1.2 In which Local Government Authority (LGA) is this proposal located?",
+	      "options": [
+		{
+		  "label": "Nungarin",
+		  "value": "Nungarin",
+		  "isRequired": "true"
+		},
+		{
+		  "label": "Ngaanyatjarraku",
+		  "value": "Ngaanyatjarraku"
+		},
+		{
+		  "label": "Beverley",
+		  "value": "Beverley"
+		},
+		{
+		  "label": "Pingelly",
+		  "value": "Pingelly"
+		},
+		{
+		  "label": "Wongan-Ballidu",
+		  "value": "WonganBallidu"
+		}
+	      ],
+	      "help_text_url": "site_url:/help/disturbance/user/anchor=Section1-2"
+	    },
+	    {
+	      "name": "Section10-2",
+	      "type": "select",
+	      "label": "10.2 In which something is this proposal located?",
+	      "options": [
+		{
+		  "label": "Nungarin",
+		  "value": "Nungarin",
+		  "isRequired": "true"
+		},
+		{
+		  "label": "Ngaanyatjarraku",
+		  "value": "Ngaanyatjarraku"
+		},
+		{
+		  "label": "Beverley",
+		  "value": "Beverley"
+		},
+		{
+		  "label": "Pingelly",
+		  "value": "Pingelly"
+		},
+		{
+		  "label": "Wongan-Ballidu",
+		  "value": "WonganBallidu"
+		}
+	      ],
+	      "help_text_url": "site_url:/help/disturbance/user/anchor=Section10-2"
+	    },
+	    {
+	      "name": "checkboxSection",
+	      "type": "section",
+	      "label": "2. Checkboxes",
+	      "children": [
+		{
+		  "name": "Section11-0",
+		  "type": "group",
+		  "label": "2.0 What is the land tenure or classification?",
+		  "children": [
+		    {
+		      "name": "Section11-0-1",
+		      "type": "checkbox",
+		      "group": "Section11-0",
+		      "label": "National park",
+		      "isRequired": "true"
+		    },
+		    {
+		      "name": "Section11-0-2",
+		      "type": "checkbox",
+		      "group": "Section11-0",
+		      "label": "Nature reserve"
+		    },
+		    {
+		      "name": "Section11-0-3",
+		      "type": "checkbox",
+		      "group": "Section11-0",
+		      "label": "Conservation park"
+		    },
+		    {
+		      "name": "Section11-0-4",
+		      "type": "checkbox",
+		      "group": "Section11-0",
+		      "label": "State forest"
+		    }
+		  ],
+		  "help_text_url": "site_url:/help/disturbance/user/anchor=Section11-5"
+		}
+	      ]
+	    },
+	    {
+	      "name": "radioSection",
+	      "type": "section",
+	      "label": "Radio Test",
+	      "children": [
+		{
+		  "name": "Section12-0",
+		  "type": "radiobuttons",
+		  "label": "Radio first",
+		  "options": [
+		    {
+		      "label": "Yes",
+		      "value": "yes"
+		    },
+		    {
+		      "label": "No",
+		      "value": "no"
+		    }
+		  ],
+		  "conditions": {
+		    "yes": [
+		      {
+			"name": "Section12-0-YesGroup",
+			"type": "group",
+			"label": "",
+			"children": [
+			  {
+			    "name": "Section12-0-Yes1",
+			    "type": "radiobuttons",
+			    "label": "Radio 2",
+			    "options": [
+			      {
+				"label": "One option",
+				"value": "oneoption"
+			      },
+			      {
+				"label": "two option",
+				"value": "twooption"
+			      }
+			    ]
+			  }
+			]
+		      }
+		    ]
+		  }
+		}
+	      ]
+	    }
+	  ],
+	  "data": [
+	    {}
+	  ],
+	  "layer_data": null,
+	  "add_info_assessor": null
+	} 
+}
