@@ -4,7 +4,7 @@ django-extensions==1.9.8
 git+https://github.com/xzzy/webtemplate.git#egg=webtemplate_dbca
 git+https://github.com/dbca-wa/dbca-utils@1.1.1#egg=dbca-utils
 psycopg2-binary==2.8.5
-ipython==7.19.0
+ipython==8.10.0
 django-utils-six==2.0
 social-auth-app-django==2.1.0
 git+https://github.com/scottp-dpaw/social-core.git@email_fix#egg=social-auth-core
