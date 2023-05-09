@@ -1,4 +1,4 @@
-Django==3.2.4
+Django==3.2.19
 django-extensions==1.9.8
 #git+https://github.com/dbca-wa/dpaw-utils.git@0.4.2#egg=dpaw-utils
 git+https://github.com/xzzy/webtemplate.git#egg=webtemplate_dbca
