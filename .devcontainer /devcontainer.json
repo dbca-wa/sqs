@@ -6,10 +6,10 @@
 	"mounts": ["type=bind,source=/data/,target=/data/",
 	           "type=bind,source=/data/data/containerhome/,target=/home/container/"
 	          ],	
-	"appPort": [ "7007:8080","9061:9061","9062:9062","9063:9063","9064:9064","9065:9065","9066:9066","9067:9067","9068:9068","9069:9069" ],
+	"appPort": [ "7017:8080","9131:9131","9132:9132","9133:9133","9134:9134","9135:9135" ],
 	"runArgs": ["--env-file","${localEnv:HOME}/vscode-env/sqs.env",
 		   "--hostname","sqs-dev"
 		   ],
-	"forwardPorts": [9061,9062,9063,9064,9065,9066,9067,9068,9069],
+	"forwardPorts": [9131,9132,9133,9134,9135],
 	"initializeCommand" : "${localEnv:HOME}/docker-scripts-dev/windows_vbox/postgres_docker_load.sh"
 }
