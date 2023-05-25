@@ -111,7 +111,10 @@ class DefaultOperator():
                         # comparing strings
                         self.operator_result = overlay_result
 
-            #self.operator_result = self.operator_result if isinstance(self.operator_result, list) else [self.operator_result]
+            if not self.operator_result:
+                # check if operator_result is an empty string
+                self.operator_result = []
+
             self.operator_result = self.operator_result if isinstance(self.operator_result, list) else self.operator_result.split(',')
             return self.operator_result
         except ValueError as e:
