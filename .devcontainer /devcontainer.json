@@ -1,0 +1,15 @@
+{
+	"name": "SQS Development",
+	"image": "dbcawa/docker_app_dev:sqs_dev_latest",
+	"remoteUser": "container",
+	"workspaceFolder": "/data/data/projects/sqs",
+	"mounts": ["type=bind,source=/data/,target=/data/",
+	           "type=bind,source=/data/data/containerhome/,target=/home/container/"
+	          ],	
+	"appPort": [ "7017:8080","9131:9131","9132:9132","9133:9133","9134:9134","9135:9135" ],
+	"runArgs": ["--env-file","${localEnv:HOME}/vscode-env/sqs.env",
+		   "--hostname","sqs-dev"
+		   ],
+	"forwardPorts": [9131,9132,9133,9134,9135],
+	"initializeCommand" : "${localEnv:HOME}/docker-scripts-dev/windows_vbox/postgres_docker_load.sh"
+}
