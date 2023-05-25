@@ -265,9 +265,18 @@ TEST_RESPONSE = {
     }
   ],
   "add_info_assessor": {
-    "Section7-0": "(PrefixAssessor) Item/List of intersection result: KALGOORLIE, ALBANY",
-    "Section8-0": "(PrefixAssessor) Item/List of intersection result: GOLDFIELDS",
-    "Section9-0": "(PrefixAssessor) (AssessorInfo) Static Assessor Text"
+      "Section7-0": {
+	"proponent_answer": "(PrefixProponent): KALGOORLIE, ALBANY",
+	"assessor_answer": "(PrefixAssessor) Item/List of intersection result: KALGOORLIE, ALBANY"
+      },
+      "Section8-0": {
+	"proponent_answer": "(PrefixProponent):",
+	"assessor_answer": "(PrefixAssessor) Item/List of intersection result: GOLDFIELDS"
+      },
+      "Section9-0": {
+	"proponent_answer": "(PrefixProponent): (Proponent Answer Text).",
+	"assessor_answer": "(PrefixAssessor) (AssessorInfo) Static Assessor Text"
+      }
   }
 }
 

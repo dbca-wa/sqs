@@ -5,6 +5,10 @@ import json
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper
 #from sqs.utils.helper  import SchemaSearch
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class DisturbanceLayerQuery(object):
 
     def __init__(self, masterlist_questions, geojson, proposal):
@@ -89,12 +93,14 @@ class DisturbancePrefillData(object):
                         #import ipdb; ipdb.set_trace()
                         sqs_dict = self.layer_query_helper.find_multiselect(item)
                         sqs_values = sqs_dict.get('result')
-                        assessor_info = sqs_dict.get('assessor_info')
-                        layer_details = sqs_dict.get('layer_details')
+                        #assessor_info = sqs_dict.get('assessor_info')
+                        #layer_details = sqs_dict.get('layer_details')
                         
                         if sqs_values:
-                            self.add_info_assessor[item['name']] = assessor_info
-                            self._update_layer_info(layer_details)
+                            #self.add_info_assessor[item['name']] = assessor_info
+                            #self._update_layer_info(layer_details)
+                            self._update_assessor_info(item, sqs_dict)
+                            self._update_layer_info(sqs_dict)
 
                             # Next Line: resetting to None before refilling - TODO perhaps run for all within __init__()
                             item_data[item['name']]=[]
@@ -113,16 +119,18 @@ class DisturbancePrefillData(object):
                             sqs_dict = self.layer_query_helper.find_select(item)
                             #import ipdb; ipdb.set_trace()
                         elif item['type'] == 'radiobuttons':
-                            #import ipdb; ipdb.set_trace()
                             sqs_dict = self.layer_query_helper.find_radiobutton(item)
+                            #import ipdb; ipdb.set_trace()
 
                         sqs_value = sqs_dict.get('result')
-                        assessor_info = sqs_dict.get('assessor_info')
+                        #assessor_info = sqs_dict.get('assessor_info')
                         layer_details = sqs_dict.get('layer_details')
                         if sqs_value:
                             #self.add_info_assessor[item['name']] = sqs_value.get('assessor_answer')
-                            self.add_info_assessor[item['name']] = assessor_info
-                            self._update_layer_info(layer_details)
+                            #self.add_info_assessor[item['name']] = assessor_info
+                            #self._update_layer_info(layer_details)
+                            self._update_assessor_info(item, sqs_dict)
+                            self._update_layer_info(sqs_dict)
 
                             if item['options']:
                                 for op in item['options']:
@@ -138,14 +146,16 @@ class DisturbancePrefillData(object):
                             sqs_dict = self.layer_query_helper.find_other(item)
                             #import ipdb; ipdb.set_trace()
                             #sqs_values = sqs_dict.get('result')
-                            layer_details = sqs_dict.get('layer_details')
+                            #layer_details = sqs_dict.get('layer_details')
                             assessor_info = sqs_dict.get('assessor_info')
 
                             #if sqs_values:
                             if assessor_info:
                                 item_data[item['name']] = assessor_info.get('proponent_answer')
-                                self.add_info_assessor[item['name']] = assessor_info.get('assessor_answer')
-                                self._update_layer_info(layer_details)
+                                #self.add_info_assessor[item['name']] = assessor_info.get('assessor_answer')
+                                #self._update_layer_info(layer_details)
+                                self._update_assessor_info(item, sqs_dict)
+                                self._update_layer_info(sqs_dict)
                     else:
                         #All the other types e.g. date, number etc (except label).
                         pass
@@ -167,11 +177,13 @@ class DisturbancePrefillData(object):
                     sqs_dict = self.layer_query_helper.find_checkbox(item)
                     #import ipdb; ipdb.set_trace()
                     sqs_values = sqs_dict.get('result')
-                    layer_details = sqs_dict.get('layer_details')
-                    assessor_info = sqs_dict.get('assessor_info')
+                    #layer_details = sqs_dict.get('layer_details')
+                    #assessor_info = sqs_dict.get('assessor_info')
                     if sqs_values:
-                        self.add_info_assessor[item['name']] = assessor_info
-                        item_layer_data = self._update_layer_info(layer_details)
+                        #self.add_info_assessor[item['name']] = assessor_info
+                        #item_layer_data = self._update_layer_info(layer_details)
+                        self._update_assessor_info(item, sqs_dict)
+                        item_layer_data = self._update_layer_info(sqs_dict)
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix, sqs_values)
                 else:
                     item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
@@ -189,7 +201,8 @@ class DisturbancePrefillData(object):
                         for child in item['conditions'][condition]:
                             item_data.update(self._populate_data_from_item(child,  repetition, suffix))
             except Exception as e:
-                import ipdb; ipdb.set_trace()
+                #import ipdb; ipdb.set_trace()
+                logger.error(f'Error "conditions": {str(e)}')
                 pass
 
         return item_data
@@ -208,48 +221,36 @@ class DisturbancePrefillData(object):
         return item_data
 
     def check_checkbox_item(self, item_name,item,item_data,repetition,suffix):
-        #import ipdb; ipdb.set_trace()
         checkbox_item=False
         for child_item in item.get('children'):
             if child_item['type']=='checkbox':
                 checkbox_item=True        
         return checkbox_item
 
-    def _update_layer_info(self, layer_details):
+    def _update_layer_info(self, sqs_dict):
         #import ipdb; ipdb.set_trace()
         layer_info = []
-        for ld in layer_details:
-            #layer_info.append(
-            self.layer_data.append(
-                dict(
-                    name=ld['name'] if 'name' in ld else None,
-                    label=ld['label'] if 'label' in ld else None,
-                    **ld['details'],
+
+        try:
+            layer_details = sqs_dict.get('layer_details')
+            for ld in layer_details:
+                self.layer_data.append(
+                    dict(
+                        name=ld['name'] if 'name' in ld else None,
+                        response=ld['label'] if 'label' in ld else None,
+                        **ld['details'],
+                        sqs_data=ld['question'],
+                    )
                 )
-            )
-        #return layer_info
+        except Exception as e:
+            logger.error(f'Error: {str(e)}')
+            #import ipdb; ipdb.set_trace()
 
-#        return dict(
-#            name=item_name,
-#            layer_details=layer_details,
-#            #new_layer_name='new layer name',
-#            #new_layer_updated='new layer updated'
-#        )
+    def _update_assessor_info(self, item, sqs_dict):
+        assessor_info = sqs_dict.get('assessor_info')
+        if assessor_info:
+            self.add_info_assessor[item['name']] = assessor_info
 
-
-#def save_prefill_data(proposal):
-#    prefill_instance= PrefillData()
-#    try:
-#        prefill_data = prefill_instance.prefill_data_from_shape(proposal.schema)
-#        if prefill_data:
-#            proposal.data=prefill_data
-#            proposal.layer_data= prefill_instance.layer_data
-#            print(prefill_instance.add_info_assessor)
-#            proposal.add_info_assessor=prefill_instance.add_info_assessor
-#            proposal.save()
-#            return proposal
-#    except:
-#        raise
 
 
 

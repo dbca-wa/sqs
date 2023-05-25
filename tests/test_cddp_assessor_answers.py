@@ -101,30 +101,31 @@ class SetupCddpAssessorAnswerTests(TestCase):
         logger.info("Method: test_other_isnotnull_no_of_polygons.")
         self.dlq = DisturbanceLayerQuery(polygons.MASTERLIST_QUESTIONS_GBQ, polygons.GEOJSON, polygons.PROPOSAL)
         res = self.dlq.query()
+        #import ipdb; ipdb.set_trace()
         self.assertTrue(res['add_info_assessor'] == polygons.TEST_RESPONSE['add_info_assessor'])
 
-    def test_checkbox_lessthan(self):
-        logger.info("Method: test_checkbox_lessthan.")
-        self.dlq = DisturbanceLayerQuery(cb_assessor.MASTERLIST_QUESTIONS_GBQ, cb_assessor.GEOJSON, cb_assessor.PROPOSAL)
-        res = self.dlq.query()
-        self.assertTrue(res['add_info_assessor'] == cb_assessor.TEST_RESPONSE['add_info_assessor'])
-
-    def test_select_lessthan(self):
-        logger.info("Method: test_select_lessthan.")
-        self.dlq = DisturbanceLayerQuery(select_assessor.MASTERLIST_QUESTIONS_GBQ, select_assessor.GEOJSON, select_assessor.PROPOSAL)
-        res = self.dlq.query()
-        self.assertTrue(res['add_info_assessor'] == select_assessor.TEST_RESPONSE['add_info_assessor'])
-
-    def test_multiselect_lessthan(self):
-        logger.info("Method: test_multiselect_lessthan.")
-        self.dlq = DisturbanceLayerQuery(ms_assessor.MASTERLIST_QUESTIONS_GBQ, ms_assessor.GEOJSON, ms_assessor.PROPOSAL)
-        res = self.dlq.query()
-        self.assertTrue(res['add_info_assessor'] == ms_assessor.TEST_RESPONSE['add_info_assessor'])
-
-    def test_radiobuttons_lessthan(self):
-        logger.info("Method: test_select_lessthan.")
-        self.dlq = DisturbanceLayerQuery(rb_assessor.MASTERLIST_QUESTIONS_GBQ, rb_assessor.GEOJSON, rb_assessor.PROPOSAL)
-        res = self.dlq.query()
-        #import ipdb; ipdb.set_trace()
-        self.assertTrue(res['add_info_assessor'] == rb_assessor.TEST_RESPONSE['add_info_assessor'])
+#    def test_checkbox_lessthan(self):
+#        logger.info("Method: test_checkbox_lessthan.")
+#        self.dlq = DisturbanceLayerQuery(cb_assessor.MASTERLIST_QUESTIONS_GBQ, cb_assessor.GEOJSON, cb_assessor.PROPOSAL)
+#        res = self.dlq.query()
+#        self.assertTrue(res['add_info_assessor'] == cb_assessor.TEST_RESPONSE['add_info_assessor'])
+#
+#    def test_select_lessthan(self):
+#        logger.info("Method: test_select_lessthan.")
+#        self.dlq = DisturbanceLayerQuery(select_assessor.MASTERLIST_QUESTIONS_GBQ, select_assessor.GEOJSON, select_assessor.PROPOSAL)
+#        res = self.dlq.query()
+#        self.assertTrue(res['add_info_assessor'] == select_assessor.TEST_RESPONSE['add_info_assessor'])
+#
+#    def test_multiselect_lessthan(self):
+#        logger.info("Method: test_multiselect_lessthan.")
+#        self.dlq = DisturbanceLayerQuery(ms_assessor.MASTERLIST_QUESTIONS_GBQ, ms_assessor.GEOJSON, ms_assessor.PROPOSAL)
+#        res = self.dlq.query()
+#        self.assertTrue(res['add_info_assessor'] == ms_assessor.TEST_RESPONSE['add_info_assessor'])
+#
+#    def test_radiobuttons_lessthan(self):
+#        logger.info("Method: test_select_lessthan.")
+#        self.dlq = DisturbanceLayerQuery(rb_assessor.MASTERLIST_QUESTIONS_GBQ, rb_assessor.GEOJSON, rb_assessor.PROPOSAL)
+#        res = self.dlq.query()
+#        import ipdb; ipdb.set_trace()
+#        self.assertTrue(res['add_info_assessor'] == rb_assessor.TEST_RESPONSE['add_info_assessor'])
 

@@ -35,15 +35,17 @@ class DisturbanceLayerQueryHelper():
         self.masterlist_questions = masterlist_questions
         self.geojson = self.read_geojson(geojson)
         self.proposal = proposal
-        #self.processed_questions = []
         self.unprocessed_questions = []
 
     def read_geojson(self, geojson):
         """ geojson is the user specified polygon, used to intersect the layers """
-        mpoly = gpd.read_file(json.dumps(geojson))
-        if mpoly.crs.srs != settings.CRS:
-            # CRS = 'EPSG:4236'
-            mpoly.to_crs(settings.CRS, inplace=True)
+        try:
+            mpoly = gpd.read_file(json.dumps(geojson))
+            if mpoly.crs.srs != settings.CRS:
+                # CRS = 'EPSG:4236'
+                mpoly.to_crs(settings.CRS, inplace=True)
+        except Exception as e:
+            raise Exception(f'Error reading geojson file: {str(e)}')
 
         return mpoly
 
@@ -62,7 +64,6 @@ class DisturbanceLayerQueryHelper():
             buffer_size = cddp_question['buffer']
             if buffer_size:
                 buffer_size = float(buffer_size) 
-                #import ipdb; ipdb.set_trace()
                 if mpoly.crs.srs != settings.CRS:
                     mpoly.to_crs(settings.CRS, inplace=True)
 
@@ -102,33 +103,6 @@ class DisturbanceLayerQueryHelper():
 #                    unique_layer_list.append(_dict)
 #        return unique_layer_list
 
-#    def get_layer(self, layer_name):
-#        '''
-#        Get Layer Objects from cache if exists, otherwise get from DB and set the cache
-#        '''
-#        # try to get from cached 
-#        layer_gdf = cache.get(self.LAYER_CACHE.format(layer_name))
-#        layer_info = cache.get(self.LAYER_DETAILS_CACHE.format(layer_name))
-#          
-#        if layer_gdf is None:
-#            layer = Layer.objects.get(name=layer_name)
-#            layer_gdf = layer.to_gdf
-#            if layer_gdf.crs.srs != settings.CRS:
-#                layer_gdf.to_crs(settings.CRS, inplace=True)
-#
-#            layer_info = dict(
-#                layer_name=layer_name,
-#                layer_created=layer.created_date.strftime(DATETIME_FMT),
-#                layer_version=layer.version,
-#            )
-#
-#            # set the cache 
-#            cache.set(self.LAYER_CACHE.format(layer_name), layer_gdf, settings.CACHE_TIMEOUT)
-#            cache.set(self.LAYER_DETAILS_CACHE.format(layer_name), layer_info, settings.CACHE_TIMEOUT)
-#
-#        #import ipdb; ipdb.set_trace()
-#        return layer_info, layer_gdf
-
     def get_attributes(self, layer_gdf):
         cols = layer_gdf.columns.drop(['id','md5_rowhash', 'geometry'])
         attrs = layer_gdf[cols].to_dict(orient='records')
@@ -138,75 +112,6 @@ class DisturbanceLayerQueryHelper():
         attrs = pd.DataFrame(attrs).drop_duplicates().to_dict('r')
         return attrs
 
-#    def spatial_join(self, question):
-#        '''
-#        Grouped By Layer
-#
-#        Process new layer (all questions for layer_name will be processed) and results stored in cache 
-#
-#        NOTE: All questions for the given layer 'layer_name' will be processed by 'spatial_join()' and results stored in cache. 
-#              This will save time reloading and querying layers for questions from the same layer_name. 
-#              It is CPU cost effective to query all questions for the same layer now, and cache results for 
-#              subsequent potential question/answer queries.
-#        '''
-#
-#        #response = [] 
-#        #now = datetime.now().date()
-#        #import ipdb; ipdb.set_trace()
-#        today = datetime.now(pytz.timezone(settings.TIME_ZONE))
-#
-#        #import ipdb; ipdb.set_trace()
-#        questions_grouped_by_layer = self.get_questions_grouped_by_layer(question)
-#        layer_name = questions_grouped_by_layer.get('layer_name')
-#        layer = Layer.objects.get(name=layer_name)
-#        layer_gdf = layer.to_gdf
-#        if layer_gdf.crs.srs != settings.CRS:
-#            layer_gdf.to_crs(settings.CRS, inplace=True)
-#
-#        #for cddp_question in self.get_questions_grouped_by_layer(question):
-#        for cddp_question in questions_grouped_by_layer['questions']:
-#            column_name = cddp_question['column_name']
-#            operator = cddp_question['operator']
-#            how = cddp_question['how']
-#            expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
-#
-##            if cddp_question['question']=='1.0 Proposal title':
-##                #import ipdb; ipdb.set_trace()
-##                pass
-#
-#            how = self.overlay_how(how) # ['interesection', 'difference']
-#
-#            overlay_res = layer_gdf.overlay(self.geojson, how=how)
-#            try:
-#                res = overlay_res[column_name].tolist()
-#            except KeyError as e:
-#                _list = pop_list(overlay_res.columns.to_list())
-#                logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
-#
-#            # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-#            ret = operator_result(cddp_question, res)
-#
-#            #import ipdb; ipdb.set_trace()
-#            response = dict(
-#                    question=cddp_question['question'],
-#                    answer=cddp_question['answer_mlq'],
-#                    expired=False if (expiry and expiry > today.date()) or not expiry else True,
-#                    visible_to_proponent=cddp_question['visible_to_proponent'],
-#                    #proponent_answer=proponent_answer(cddp_question, ret),
-#                    #assessor_answer=assessor_answer(cddp_question, ret),
-#                    layer_name=layer_name,
-#                    layer_sqs_created=layer.created.strftime(DATETIME_FMT),
-#                    layer_updated=today.strftime(DATETIME_FMT),
-#                    #response=ret if isinstance(ret, list) else ret.tolist()
-#                    response=ret if isinstance(ret, list) else [ret]
-#                )
-#            #)
-#            #if not already_exists(question, answer, layer_name):
-#            #    self.processed_questions.append(response)
-#            self.processed_questions.append(response)
-#
-#        return response
-
     def get_grouped_questions(self, question):
         """
         Return the entire question group. 
@@ -214,8 +119,6 @@ class DisturbanceLayerQueryHelper():
         """
         try:
             #import ipdb; ipdb.set_trace()
-            #expiry = datetime.strptime('2023-01-01', '%Y-%m-%d').date()
-            #now = datetime.now().date()
             for question_group in self.masterlist_questions:
                 if question_group['question_group'] == question:
                     return question_group
@@ -236,16 +139,12 @@ class DisturbanceLayerQueryHelper():
         '''
 
         error_msg = ''
-        #response = [] 
-        #now = datetime.now().date()
         today = datetime.now(pytz.timezone(settings.TIME_ZONE))
         response = []
 
-        #import ipdb; ipdb.set_trace()
         grouped_questions = self.get_grouped_questions(question)
         if len(grouped_questions)==0:
             return response
-        #question = grouped_questions.get('question_group')
 
         for cddp_question in grouped_questions['questions']:
 
@@ -254,10 +153,7 @@ class DisturbanceLayerQueryHelper():
   
                 layer_name = cddp_question['layer_name']
                 layer_url = cddp_question['layer_url']
-                #layer_info, layer_gdf = self.get_layer(layer_name)
                 layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
-
-                #import ipdb; ipdb.set_trace()
 
                 column_name = cddp_question['column_name']
                 operator = cddp_question['operator']
@@ -270,7 +166,6 @@ class DisturbanceLayerQueryHelper():
 
                 how = self.overlay_how(how) # ['interesection', 'difference']
 
-                #import ipdb; ipdb.set_trace()
                 mpoly = self.add_buffer(cddp_question)
                 #mpoly = self.geojson
                 overlay_gdf = layer_gdf.overlay(mpoly, how=how)
@@ -281,6 +176,7 @@ class DisturbanceLayerQueryHelper():
                     error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
                     logger.error(error_msg)
 
+                #import ipdb; ipdb.set_trace()
                 # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                 operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
                 operator_result = operator.comparison_result()
@@ -294,14 +190,15 @@ class DisturbanceLayerQueryHelper():
                         proponent_answer=operator.proponent_answer(),
                         assessor_answer=operator.assessor_answer(),
                         layer_details = dict(**layer_info,
+                            #question=cddp_question['question'],
+                            #answer=cddp_question['answer_mlq'],
                             sqs_timestamp=today.strftime(DATETIME_FMT),
                             #attrs = self.get_attributes(overlay_gdf),
                             error_msg = error_msg,
                         ),
-                        response=operator_result if isinstance(operator_result, list) else [operator_result],
+                        operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
                     )
                 response.append(res)
-                #self.processed_questions.append(res)
             else:
                 logger.warn(f'Expired {question_expiry}: Ignoring question {cddp_question}')
 
@@ -309,7 +206,6 @@ class DisturbanceLayerQueryHelper():
 
     def get_processed_question(self, question, widget_type):
         ''' Gets or Sets processed (spatial_join executed) question from cache '''
-        #import ipdb; ipdb.set_trace()
         processed_questions = []
         try:
             processed_questions = self.spatial_join_gbq(question, widget_type)
@@ -321,15 +217,10 @@ class DisturbanceLayerQueryHelper():
 
     def find_radiobutton(self, item):
         ''' Widget --> radiobutton
-            Iterate through spatial join response and return FIRST radiobutton item retrieved by spatial join method, that also 
-            exists in item_options (from proposal.schema)
+            1. question['operator_response']  --> contains results from SQS intersection and equality comparison
+            2. Iterate through item_options (from proposal.schema) and compare with question['answer']
 
-            NOTE: Each radiobutton component has multiple questions and multiple defined layers, one for each radiobutton. 
-                  Last one may be omitted, this will be assumed the default, if any other radiobutton is not selected.
-                  (CDDP Question, answer_mlq is required)
-            (Test Proposal --> http://localhost:8003/external/proposal/1518)
-
-            Returns --> str
+            If item_options==question['answer'] && len(question['operator_response'])>0, then return rb as checked
         '''
         response = {}
         try:
@@ -346,167 +237,43 @@ class DisturbanceLayerQueryHelper():
             assessor_info=[]
             layer_details=[]
             question = {}
+            details = {}
+            sqs_data = {}
             #import ipdb; ipdb.set_trace()
             for label in item_option_labels:
+                # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
-                    if label == question['answer'] and len(question['response'])>0:
+                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         res.append(label) # result is in an array list
-                        #import ipdb; ipdb.set_trace()
-                        if question['assessor_answer'] not in assessor_info:
-                            assessor_info.append(question['assessor_answer'])
+                        raw_data = question
+                        details = raw_data.pop('layer_details', None)
+                        layer_details.append(dict(name=schema_section, label=label, details=details, question=raw_data))
 
-            #import ipdb; ipdb.set_trace()
-            # If no res resturned from spatial_join then check if default option is available
-            if len(res)==0:
-                cddp_answers = [i['answer'] for i in processed_questions] # all answers from the cddp for this question's radiobuttons
-                try:
-                    #import ipdb; ipdb.set_trace()
-                    default = set(item_option_labels).difference(cddp_answers)
-                except Exception as e:
-                    import ipdb; ipdb.set_trace()
-                    pass
+#                        if question['assessor_answer'] not in assessor_info:
+#                            raw_data = question
+#                            details = raw_data.pop('layer_details', None)
+#                            #assessor_info.append(question['assessor_answer'])
+#                            layer_details.append(dict(name=schema_section, label=label, details=details, question=raw_data))
 
-                selected = list(default)[0]
-
-                if len(default) > 1:
-                    # msg notifying that system is returning the first default option found
-                    no_radiobuttons = len(item_option_labels)
-                    logger.warn(f'RADIOBUTTONS: has too many defaults options. There are {no_radiobuttons} radiobuttons in \
-                                  proposal.schema. There should be {no_radiobuttons-1} CDDP Question(s) in MasterList - found \
-                                  {no_radiobuttons - len(default)} CDDP Question(S) in ML.\nReturning first default {selected} \
-                                  from possible {list(default)}')
-
-                res.append(selected)
-                if question['assessor_answer'] not in assessor_info:
-                    #import ipdb; ipdb.set_trace()
-                    assessor_info.append(question['assessor_answer'])
-
-            #import ipdb; ipdb.set_trace()
-            response =  dict(
-                result=res[0] if len(res)>0 else None,
-                assessor_info=assessor_info,
-                layer_details=[dict(name=schema_section, label=label, details=question.get('layer_details'))],
-            )
+                        response =  dict(
+                            result=res[0] if len(res)>0 else None,
+                            assessor_info=assessor_info,
+                            #layer_details=[dict(name=schema_section, label=label, details=details, question=raw_data)],
+                            layer_details=layer_details,
+                        )
+                        return response
 
         except Exception as e:
-            import ipdb; ipdb.set_trace()
             logger.error(f'RADIOBUTTON: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
         return response
 
-    def find_select(self, item):
-        ''' Widget --> select
-            Iterate through spatial join response and return all items retrieved by spatial join method, that also 
-            exists in item_options (from proposal.schema)
-
-            NOTE: Each multi-select component has a single question and a single defined layer (Each select option DOES NOT have individual layers)
-                  (CDDP Question, answer_mlq is required)
-            (Test Proposal --> http://localhost:8003/external/proposal/1520)
-
-            Returns --> str
-        '''
-        response = {}
-        try:
-            schema_question  = item['label']
-            schema_section = item['name']
-            item_options   = item['options']
-
-            item_options_dict = [dict(label=i['label']) for i in item_options]
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions)==0:
-                return {}
-
-            result = []
-            assessor_info=[]
-            layer_details=[]
-            question = {}
-            #import ipdb; ipdb.set_trace()
-            for _d in item_options_dict:
-                label = _d['label']
-
-                for question in processed_questions:
-                    if label == question['answer'] and len(question['response'])>0:
-                        result = label # result is in an array list
-                        if question['assessor_answer'] not in assessor_info:
-                            assessor_info.append(question['assessor_answer'])
-
-            if result:
-                response =  dict(
-                    result=result,
-                    assessor_info=assessor_info,
-                    layer_details=[dict(name=schema_section, label=None, details=question.get('layer_details'))],
-                )
-
-        except Exception as e:
-            logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
-
-        return response
-
-    def find_multiselect(self, item):
-        ''' Widget --> multi-select
-            Iterate through spatial join response and return all items retrieved by spatial join method, that also 
-            exists in item_options (from proposal.schema)
-
-            NOTE: Each multi-select component has a single question and a single defined layer (the multi-select options DO NOT have individual layers)
-            (Test Proposal --> http://localhost:8003/external/proposal/1521[22])
-
-            Returns --> list
-        '''
-        def get_value(label):
-            ''' get the label value from list of dicts eg. [{'label': 'CITY OF JOONDALUP', 'value': 'CITY-OF-JOONDALUP'}] '''
-            for item in item_options:
-                if item['label'] == label:
-                    return item['value']
-            return None
-
-        response = {}
-        try:
-            schema_question  = item['label']
-            schema_section = item['name']
-            item_options   = item['options']
-
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions)==0:
-                return {}
-
-            #import ipdb; ipdb.set_trace()
-            result=[]
-            assessor_info=[]
-            layer_details=[]
-            question = {}
-            item_options_dict = [dict(label=i['label']) for i in item_options]
-            for _d in item_options_dict:
-                label = _d['label']
-
-                for question in processed_questions:
-                    if label == question['answer'] and len(question['response'])>0:
-                        result.append(get_value(label)) # result is in an array list
-                        if question['assessor_answer'] not in assessor_info:
-                            assessor_info.append(question['assessor_answer'])
-
-            response =  dict(
-                result=result,
-                assessor_info=assessor_info,
-                layer_details=[dict(name=schema_section, label=None, details=question.get('layer_details'))],
-            )
-
-        except Exception as e:
-            import ipdb; ipdb.set_trace()
-            logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
-
-        return response
-
-
     def find_checkbox(self, item):
         ''' Widget --> checkbox
-            Iterate through spatial join response and return all items retrieved by spatial join method, that also 
-            exists in item_options (from proposal.schema)
+            1. question['operator_response']  --> contains results from SQS intersection and equality comparison
+            2. Iterate through item_options (from proposal.schema) and compare with question['answer']
 
-            NOTE: Each checkbox component has multiple questions and multiple defined layers
-                  (CDDP Question, answer_mlq is required)
-            (Test Proposal --> http://localhost:8003/external/proposal/1519)
-
-            Returns --> list
+            If item_options==question['answer'] && len(question['operator_response'])>0, then return cb as checked
         '''
         response = {}
         try:
@@ -523,29 +290,24 @@ class DisturbanceLayerQueryHelper():
             assessor_info=[]
             layer_details=[]
             question = {}
+            #import ipdb; ipdb.set_trace()
             for _d in item_options_dict:
                 name = _d['name']
                 label = _d['label']
+                #import ipdb; ipdb.set_trace()
                 for question in processed_questions:
-                    if label == question['answer'] and len(question['response'])>0:
+                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         result.append(label) # result is in an array list 
-                        layer_details.append(dict(name=name, label=None, details=question.get('layer_details')))
-                        if question['assessor_answer'] not in assessor_info:
-                            assessor_info.append(question['assessor_answer'])
- 
-#                    if len(question['response'])>0:
-#                        if question['answer'] and ',' in question['answer']:
-#                            # comma-delimited answer in answer_mlq variable
-#                            answers = [i.strip() for i in question['answer'].split(',')]
-#                            for answer in answers:
-#                                if label == answer:
-#                                    res.append(label)
-#                                    layer_details.append(dict(name=name, label=None, details=question['layer_details']))
-#
-#                        elif label == question['answer']:
-#                            res.append(label)
-#                            layer_details.append(dict(name=name, label=None, details=question['layer_details']))
-
+                        raw_data = question
+                        details = raw_data.pop('layer_details', None)
+                        layer_details.append(dict(name=name, label=label, details=details, question=raw_data))
+#                        response.update(
+#                            dict(
+#                                result=label,
+#                                assessor_info=assessor_info,
+#                                layer_details=layer_details,
+#                            )
+#                        )
 
             response =  dict(
                 result=result,
@@ -556,7 +318,100 @@ class DisturbanceLayerQueryHelper():
         except Exception as e:
             logger.error(f'CHECKBOX: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
+        #import ipdb; ipdb.set_trace()
         return response
+
+    def find_select(self, item):
+        ''' Widget --> select
+            1. question['operator_response']  --> contains results from SQS intersection and equality comparison
+
+            If len(question['operator_response'])>0, then return select item as checked
+        '''
+        response = {}
+        try:
+            schema_question  = item['label']
+            schema_section = item['name']
+            item_options   = item['options']
+
+            item_options_dict = [dict(label=i['label']) for i in item_options]
+            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            if len(processed_questions)==0:
+                return {}
+
+            result = []
+            layer_details=[]
+            question = processed_questions[0]
+            details = {}
+            #import ipdb; ipdb.set_trace()
+            for _d in item_options_dict:
+                label = _d['label']
+
+                if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+
+                    details = question.pop('layer_details', None)
+                    response =  dict(
+                        result=label,
+                        assessor_info=[question['assessor_answer']],
+                        #layer_details=[dict(name=schema_section, label=None, details=details, question=raw_data)],
+                        layer_details=[dict(name=schema_section, label=label, details=details, question=question)],
+                    )
+                    return response
+
+        except Exception as e:
+            logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
+
+        return response
+
+    def find_multiselect(self, item):
+        ''' Widget --> multi-select
+            1. question['operator_response']  --> contains results from SQS intersection and equality comparison
+
+            If len(question['operator_response'])>0, then return multi-selects item as checked
+        '''
+        def get_value(label):
+            ''' get the label value from list of dicts eg. [{'label': 'CITY OF JOONDALUP', 'value': 'CITY-OF-JOONDALUP'}] '''
+            for item in item_options:
+                if item['label'] == label:
+                    return item['value']
+            return None
+
+        response = {}
+        try:
+            schema_question  = item['label']
+            schema_section = item['name']
+            item_options   = item['options']
+
+            #import ipdb; ipdb.set_trace()
+            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            if len(processed_questions)==0:
+                return {}
+
+            result=[]
+            layer_details=[]
+            question = [] #processed_questions[0]
+            item_options_dict = [dict(label=i['label']) for i in item_options]
+            for _d in item_options_dict:
+                label = _d['label']
+
+                for question in processed_questions:
+                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+                        result.append(get_value(label)) # result is in an array list
+                        raw_data = question
+                        details = raw_data.pop('layer_details', None)
+                        layer_details.append(dict(name=schema_section, label=get_value(label), details=details, question=raw_data))
+
+            response =  dict(
+                result=result,
+                assessor_info=[question['assessor_answer']],
+                #layer_details=[dict(name=schema_section, label=None, details=details, question=question)],
+                layer_details=layer_details,
+            )
+
+        except Exception as e:
+            logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
+
+        return response
+
 
     def find_other(self, item):
         ''' Widget --> text, text_area
@@ -581,12 +436,14 @@ class DisturbanceLayerQueryHelper():
             question = {}
             if len(processed_questions)>0:
                 question = processed_questions[0] 
+                details = question.pop('layer_details', None)
+                label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
                     assessor_info = dict(
                         proponent_answer=question['proponent_answer'],
                         assessor_answer=question['assessor_answer'],
                     ),
-                    layer_details=[dict(name=schema_section, label=None, details=question.get('layer_details'))]
+                    layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 
         except Exception as e:
