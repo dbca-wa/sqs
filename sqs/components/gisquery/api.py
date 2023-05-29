@@ -27,7 +27,7 @@ from sqs.components.gisquery.serializers import (
 )
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import LayerLoader
-from sqs.decorators import basic_exception_handler, ip_check_required
+from sqs.decorators import basic_exception_handler, ip_check_required, traceback_exception_handler
 
 from sqs.components.api import models as api_models
 from sqs.components.api import utils as api_utils
@@ -65,6 +65,7 @@ class DisturbanceLayerViewSet(viewsets.ModelViewSet):
     serializer_class = DisturbanceLayerSerializer
 
     @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
     def csrf_token(self, request, *args, **kwargs):            
         """ https://sqs-dev.dbca.wa.gov.au/api/v1/das/csrf_token.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/das/<APIKEY>/csrf_token.json
@@ -73,6 +74,7 @@ class DisturbanceLayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST',]) # POST because request will contain GeoJSON polygon to intersect with layer stored on SQS. If layer does not exist, SQS will retrieve from KMI
     @ip_check_required
+    @traceback_exception_handler
     def spatial_query(self, request, *args, **kwargs):            
         """ 
         import requests
@@ -108,6 +110,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     serializer_class = DefaultLayerSerializer
 
     @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
     def csrf_token(self, request, *args, **kwargs):            
         """ https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/csrf_token.json
@@ -116,6 +119,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST',])
     @ip_check_required
+    @traceback_exception_handler
     def add_layer(self, request, *args, **kwargs):            
         """ 
         curl -d @sqs/data/json/threatened_priority_flora.json -X POST http://localhost:8002/api/v1/layers/<APIKEY>/add_layer.json --header "Content-Type: application/json" --header "Accept: application/json"
@@ -130,6 +134,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['GET',])
     @ip_check_required
+    @traceback_exception_handler
     def layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
             https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/layer.json
@@ -140,6 +145,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['POST',])
+    @traceback_exception_handler
     def layer_test(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
             https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer_test.json
@@ -150,6 +156,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST',])
     @ip_check_required
+    @traceback_exception_handler
     def point_query(self, request, *args, **kwargs):            
         """ 
         http://localhost:8002/api/v1/layers/<APIKEY>/point_query.json
