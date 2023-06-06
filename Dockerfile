@@ -56,6 +56,7 @@ RUN service cron start
 RUN chmod 755 /startup.sh
 COPY gunicorn.ini manage.py ./
 RUN touch /app/.env
+COPY .git ./.git
 COPY sqs ./sqs
 #RUN mkdir /app/sqs/cache/
 #RUN chmod 777 /app/sqs/cache/

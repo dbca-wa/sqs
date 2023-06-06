@@ -60,48 +60,48 @@ from rest_framework.permissions import AllowAny
 #        return Response({"test":"post_test"})
 
 
-class DisturbanceLayerViewSet(viewsets.ModelViewSet):
-    queryset = Layer.objects.filter().order_by('id')
-    serializer_class = DisturbanceLayerSerializer
-
-    @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
-    def csrf_token(self, request, *args, **kwargs):            
-        """ https://sqs-dev.dbca.wa.gov.au/api/v1/das/csrf_token.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/das/<APIKEY>/csrf_token.json
-        """
-        return Response({"test":"get_test"})
-
-    @action(detail=False, methods=['POST',]) # POST because request will contain GeoJSON polygon to intersect with layer stored on SQS. If layer does not exist, SQS will retrieve from KMI
-    @ip_check_required
-    @traceback_exception_handler
-    def spatial_query(self, request, *args, **kwargs):            
-        """ 
-        import requests
-        from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
-        requests.post('http://localhost:8002/api/v1/das/spatial_query/', json=CDDP_REQUEST_JSON)
-        apikey='1234'
-        r=requests.post(url=f'http://localhost:8002/api/v1/das/{apikey}/spatial_query/', json=DAS_QUERY_JSON)
-
-        OR
-        curl -d @sqs/utils/das_tests/request_log/das_curl_query.json -X GET http://localhost:8002/api/v1/das/spatial_query/ --header "Content-Type: application/json" --header "Accept: application/json"
-        """
-        #import ipdb; ipdb.set_trace()
-        masterlist_questions = request.data['masterlist_questions']
-        geojson = request.data['geojson']
-        proposal = request.data['proposal']
-        system = proposal.get('system', 'DAS')
-
-        # log layer requests
-        request_log = LayerRequestLog.create_log(request.data)
-
-        dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
-        response = dlq.query()
-  
-        request_log.response = response
-        request_log.save()
-
-        return Response(response)
+#class DisturbanceLayerViewSet(viewsets.ModelViewSet):
+#    queryset = Layer.objects.filter().order_by('id')
+#    serializer_class = DisturbanceLayerSerializer
+#
+#    @action(detail=False, methods=['GET',])
+#    @traceback_exception_handler
+#    def csrf_token(self, request, *args, **kwargs):            
+#        """ https://sqs-dev.dbca.wa.gov.au/api/v1/das/csrf_token.json
+#            https://sqs-dev.dbca.wa.gov.au/api/v1/das/<APIKEY>/csrf_token.json
+#        """
+#        return Response({"test":"get_test"})
+#
+#    @action(detail=False, methods=['POST',]) # POST because request will contain GeoJSON polygon to intersect with layer stored on SQS. If layer does not exist, SQS will retrieve from KMI
+#    @ip_check_required
+#    @traceback_exception_handler
+#    def spatial_query(self, request, *args, **kwargs):            
+#        """ 
+#        import requests
+#        from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
+#        requests.post('http://localhost:8002/api/v1/das/spatial_query/', json=CDDP_REQUEST_JSON)
+#        apikey='1234'
+#        r=requests.post(url=f'http://localhost:8002/api/v1/das/{apikey}/spatial_query/', json=DAS_QUERY_JSON)
+#
+#        OR
+#        curl -d @sqs/utils/das_tests/request_log/das_curl_query.json -X GET http://localhost:8002/api/v1/das/spatial_query/ --header "Content-Type: application/json" --header "Accept: application/json"
+#        """
+#        #import ipdb; ipdb.set_trace()
+#        masterlist_questions = request.data['masterlist_questions']
+#        geojson = request.data['geojson']
+#        proposal = request.data['proposal']
+#        system = proposal.get('system', 'DAS')
+#
+#        # log layer requests
+#        request_log = LayerRequestLog.create_log(request.data)
+#
+#        dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
+#        response = dlq.query()
+#  
+#        request_log.response = response
+#        request_log.save()
+#
+#        return Response(response)
 
 #class DefaultLayerViewSet(viewsets.GenericViewSet):
 class DefaultLayerViewSet(viewsets.ModelViewSet):

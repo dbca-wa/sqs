@@ -26,7 +26,7 @@ class Command(BaseCommand):
         name = options['name']
         logger.info('Running command {}'.format(__name__))
 
-        layer_gdf = DbLayerProvider(name, url).get_layer_from_geoserver()
+        layer_info, layer_gdf = DbLayerProvider(name, url).get_layer_from_geoserver()
 
 
 
