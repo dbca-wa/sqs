@@ -19,7 +19,7 @@ from sqs.decorators import basic_exception_handler, apikey_required
 
 from sqs.components.api import models as api_models
 from sqs.components.api import utils as api_utils
-from sqs.decorators import ip_check_required, traceback_exception_handler
+from sqs.decorators import ip_check_required, traceback_exception_handler, apiview_response_exception_handler
 
 import logging
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class DisturbanceLayerView(View):
 
     @csrf_exempt
     @ip_check_required
-    @traceback_exception_handler
+    @apiview_response_exception_handler
     def post(self, request):            
         """ 
         import requests

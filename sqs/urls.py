@@ -36,8 +36,8 @@ urlpatterns = [
     url(r'^$', TemplateView.as_view(template_name='sqs/base2.html'), name='home'),
 
     url(r'api/v1/das', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
-    #url(r'api/v1/das/(?P<apikey>[\w\-]+)', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
 
+    #url(r'api/v1/das/(?P<apikey>[\w\-]+)', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
 #    url(r'api/v1/view_test', csrf_exempt(gisquery_views.TestView.as_view()), name='view_test'),
 #    url(r'api/v1/das2/(?P<apikey>[\w\-]+)', csrf_exempt(gisquery_api.DisturbanceLayerAPIView.as_view()), name='das2'),
 #    url(r'api/v1/das3/(?P<apikey>[\w\-]+)', gisquery_api.DisturbanceLayerAPIView2.as_view(), name='das3'),
