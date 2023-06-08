@@ -222,7 +222,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'ledger.log'),
+            'filename': os.path.join(BASE_DIR, 'logs', 'sqs.log'),
             'formatter': 'verbose',
             'maxBytes': 5242880
         },

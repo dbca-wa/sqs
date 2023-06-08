@@ -119,33 +119,13 @@ class LayerLoader():
         
         return  layer
 
+
 def layer_is_unchanged(gdf1, gdf2):
     #import ipdb; ipdb.set_trace()
     gdf1 = gdf1.reindex(sorted(gdf1.columns), axis=1)
     gdf2 = gdf2.reindex(sorted(gdf2.columns), axis=1)
     return gdf1.loc[:, ~gdf1.columns.isin(['id', 'md5_rowhash'])].equals(gdf2.loc[:, ~gdf2.columns.isin(['id', 'md5_rowhash'])])
 
-#def has_layer_changed(layer_gdf1, layer_gdf2):
-#
-#    #import ipdb; ipdb.set_trace()
-#    # check columns are the same
-#    cols1 = list(layer_gdf1.columns.sort_values())
-#    cols2 = list(layer_gdf2.columns.sort_values())
-#    if cols1 != cols2:
-#        # GeoJSON has changed
-#        return True
-#
-#    # remove the 'id' column from layer_gdf's and sort the columns [index(axis=1)]
-#    layer_gdf1 = layer_gdf1.loc[:, layer_gdf1.columns!='id'].sort_index(axis=1)
-#    layer_gdf2 = layer_gdf2.loc[:, layer_gdf2.columns!='id'].sort_index(axis=1)
-#
-#    # check geo dataframes are the same
-#    #if (layer_gdf1 == layer_gdf2).eq(True).all().eq(True).all():
-#    if layer_gdf1.equals(layer_gdf2):
-#        # GeoJSON has not changed
-#        return False
-#
-#    return True
 
 class DbLayerProvider():
     '''

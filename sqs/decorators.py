@@ -1,9 +1,10 @@
 from rest_framework.response import Response
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
+from http import HTTPStatus
 from django.db import connection, reset_queries
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpRequest
 from rest_framework import serializers
 from rest_framework.request import Request
 
@@ -57,6 +58,23 @@ def apikey_required(func):
             return Response({'status': 404, 'message': 'API Key Not Found'})
 
     return wrapper
+
+def apiview_response_exception_handler(func):
+    ''' IP Check and API TOKEN Required
+    '''
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            #import ipdb; ipdb.set_trace()
+            return func(*args, **kwargs)
+        except KeyError as e:
+            print(traceback.print_exc())
+            return JsonResponse(status=HTTPStatus.BAD_REQUEST, data={'status': 'Bad Request', 'Key Error': str(e)})
+        except Exception as e:
+            print(traceback.print_exc())
+            return JsonResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={'status':'Internal Server Error','exception': str(e)})
+    return wrapper
+
 
 def basic_exception_handler(func):
     @functools.wraps(func)

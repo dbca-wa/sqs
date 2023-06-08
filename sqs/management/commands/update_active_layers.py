@@ -15,7 +15,7 @@ class Command(BaseCommand):
     Load Layer util
     """
 
-    help = 'Updates the actice layers - get the active layers from GeoServer and if changed update SQS'
+    help = 'Updates the active layers - get the active layers from GeoServer and if changed update SQS'
 
     def handle(self, *args, **options):
         #import ipdb; ipdb.set_trace()
