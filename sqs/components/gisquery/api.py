@@ -136,25 +136,25 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return Response({"test":"test"})
 
 
-    @action(detail=False, methods=['POST',])
-    @ip_check_required
-    @traceback_exception_handler
-    def point_query(self, request, *args, **kwargs):            
-        """ 
-        http://localhost:8002/api/v1/layers/<APIKEY>/point_query.json
-
-        curl -d '{"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}' -X POST http://localhost:8002/api/v1/layers/point_query.json --header "Content-Type: application/json" --header "Accept: application/json"
-        """
-
-        #import ipdb; ipdb.set_trace()
-        layer_name = request.data['layer_name']
-        longitude = request.data['longitude']
-        latitude = request.data['latitude']
-        layer_attrs = request.data.get('layer_attrs', [])
-        predicate = request.data.get('predicate', 'within')
-
-        helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
-        response = helper.spatial_join(predicate=predicate)
-        return Response(response)
+#    @action(detail=False, methods=['POST',])
+#    @ip_check_required
+#    @traceback_exception_handler
+#    def point_query(self, request, *args, **kwargs):            
+#        """ 
+#        http://localhost:8002/api/v1/layers/<APIKEY>/point_query.json
+#
+#        curl -d '{"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}' -X POST http://localhost:8002/api/v1/layers/point_query.json --header "Content-Type: application/json" --header "Accept: application/json"
+#        """
+#
+#        #import ipdb; ipdb.set_trace()
+#        layer_name = request.data['layer_name']
+#        longitude = request.data['longitude']
+#        latitude = request.data['latitude']
+#        layer_attrs = request.data.get('layer_attrs', [])
+#        predicate = request.data.get('predicate', 'within')
+#
+#        helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
+#        response = helper.spatial_join(predicate=predicate)
+#        return Response(response)
 
 

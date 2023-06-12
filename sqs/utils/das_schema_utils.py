@@ -151,7 +151,8 @@ class DisturbancePrefillData(object):
 
                             #if sqs_values:
                             if assessor_info:
-                                item_data[item['name']] = assessor_info.get('proponent_answer')
+                                #item_data[item['name']] = assessor_info.get('proponent_answer')
+                                item_data[item['name']] = assessor_info
                                 #self.add_info_assessor[item['name']] = assessor_info.get('assessor_answer')
                                 #self._update_layer_info(layer_details)
                                 self._update_assessor_info(item, sqs_dict)
@@ -250,6 +251,7 @@ class DisturbancePrefillData(object):
         assessor_info = sqs_dict.get('assessor_info')
         if assessor_info:
             self.add_info_assessor[item['name']] = assessor_info
+        #pass
 
 
 

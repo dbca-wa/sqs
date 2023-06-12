@@ -134,7 +134,7 @@ class LayerRequestLog(models.Model):
 
     @classmethod
     def create_log(self, data):
-        system = data['proposal']['system']
+        system = data['system']
         app_id = data['proposal']['id']
 
         log = LayerRequestLog.objects.create(system=system, app_id=app_id, data=data)
