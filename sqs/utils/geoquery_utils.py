@@ -439,10 +439,11 @@ class DisturbanceLayerQueryHelper():
                 details = question.pop('layer_details', None)
                 label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
-                    assessor_info = dict(
-                        proponent_answer=question['proponent_answer'],
-                        assessor_answer=question['assessor_answer'],
-                    ),
+#                    assessor_info = dict(
+#                        proponent_answer=question['proponent_answer'],
+#                        assessor_answer=question['assessor_answer'],
+#                    ),
+                    assessor_info = question['assessor_answer'],
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 

@@ -1,11 +1,11 @@
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
-from http import HTTPStatus
+from rest_framework import viewsets, serializers, status
 from django.db import connection, reset_queries
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.handlers.wsgi import WSGIRequest
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.request import Request
 
 import time
@@ -68,11 +68,12 @@ def apiview_response_exception_handler(func):
             #import ipdb; ipdb.set_trace()
             return func(*args, **kwargs)
         except KeyError as e:
-            print(traceback.print_exc())
-            return JsonResponse(status=HTTPStatus.BAD_REQUEST, data={'status': 'Bad Request', 'Key Error': str(e)})
+            logger.error(traceback.print_exc())
+            #return JsonResponse(status=HTTPStatus.BAD_REQUEST, data={'errors': traceback.format_exc().translate({ord('\\'): None})})
+            return JsonResponse(status=HTTPStatus.BAD_REQUEST, data={'errors': traceback.format_exc()})
         except Exception as e:
-            print(traceback.print_exc())
-            return JsonResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={'status':'Internal Server Error','exception': str(e)})
+            logger.error(traceback.print_exc())
+            return JsonResponse(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
     return wrapper
 
 

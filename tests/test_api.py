@@ -5,6 +5,7 @@ from rest_framework import status
 #import unittest
 from django.test import TestCase
 import requests
+import json
 
 #from tests.no_createdb_test_runner import NoCreateDbTestRunner
 from sqs.utils.das_tests.api.cddp_request import CDDP_REQUEST_JSON
@@ -50,8 +51,10 @@ class SetupApiTests(TestCase):
         apikey = 'DUMMY_APIKEY'
         api_obj = API.objects.create(system_name='DAS-UnitTest', system_id='S123', api_key=apikey, allowed_ips='127.0.0.1/32', active=True)
 
-        self.point_query_url = reverse('layers-list') + 'point_query/'
-        self.spatial_query_url = reverse('das-list') + 'spatial_query/'
+        #self.point_query_url = reverse('layers-list') + 'point_query/'
+        #self.spatial_query_url = reverse('das-list') + 'spatial_query/'
+        self.point_query_url = reverse('point_query')
+        self.spatial_query_url = reverse('das')
         self.sqs_layer_query_url = reverse('layers-list') #+ '50/layer.json/'
         self.kmi_geojson_query_url = 'https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dbca_regions&maxFeatures=50&outputFormat=application%2Fjson'
 
@@ -75,7 +78,7 @@ class SetupApiTests(TestCase):
         ''' GET Layer Request from SQS (localhost) - http://localhost:8002/api/v1/layers/point_query.json '''
         logger.info("Method: self.sqs_layerfeatures_query_url.")
         data = {"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}
-        response = self.api_client.post(self.point_query_url, data=data, format='json')
+        response = self.api_client.post(self.point_query_url, data={'data': json.dumps(data)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_sqs_layer_request_url(self):
