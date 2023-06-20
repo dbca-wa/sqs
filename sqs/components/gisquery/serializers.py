@@ -7,19 +7,8 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer
 
 from sqs.components.gisquery.models import (
     Layer,
+    LayerRequestLog
 )
-
-
-class GeoTestSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = Layer
-        #fields = '__all__'
-        fields=(
-            'id',
-            'name',
-            'type',
-        )
 
 
 class DefaultLayerSerializer(serializers.ModelSerializer):
@@ -31,20 +20,42 @@ class DefaultLayerSerializer(serializers.ModelSerializer):
             'name',
             'url',
             'version',
-            'geojson',
+            'active',
+            #'geojson',
         )
 
 
-class DisturbanceLayerSerializer(serializers.ModelSerializer):
+class LayerRequestLogSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Layer
-        geo_field = 'geojson'
+        model = LayerRequestLog
         fields=(
             'id',
-            'name',
-            'url',
-            'version',
-            'geojson',
+            'system',
+            'app_id',
+            'when',
+            'data',
+            'response',
         )
+
+    def __init__(self, *args, **kwargs):
+        remove_fields = kwargs.pop('remove_fields', None)
+        super().__init__(*args, **kwargs)
+
+        if remove_fields:
+            # for multiple fields in a list
+            for field_name in remove_fields:
+                self.fields.pop(field_name)
+
+#class DisturbanceLayerSerializer(serializers.ModelSerializer):
+#    class Meta:
+#        model = Layer
+#        geo_field = 'geojson'
+#        fields=(
+#            'id',
+#            'name',
+#            'url',
+#            'version',
+#            'geojson',
+#        )
 
 

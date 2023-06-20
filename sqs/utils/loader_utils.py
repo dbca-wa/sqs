@@ -38,17 +38,17 @@ class LayerLoader():
         
     def retrieve_layer(self):
         try:
-            #import ipdb; ipdb.set_trace()
             if 'public' not in self.name:
                 res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None)
             else:
                 res = requests.get('{}'.format(self.url), verify=None)
 
             res.raise_for_status()
-            #cache.set('department_users',json.loads(res.content).get('objects'),10800)
             return res.json()
         except Exception as e:
-            raise
+            err_msg = f'Error getting layer from API Request {self.name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='api_layer_retrieve_error' )
 
     @classmethod
     def retrieve_layer_from_file(self, filename):
@@ -57,14 +57,12 @@ class LayerLoader():
                 data = json.load(json_file)
             return data
         except Exception as e:
-            raise
+            err_msg = f'Error getting layer from file {self.name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='file_layer_retrieve_error' )
 
 
     def load_layer(self, filename=None, geojson=None):
-
-        #layer_gdf = gpd.read_file('sqs/data/json/dpaw_regions.json')
-        #layer_gdf = gpd.read_file(io.BytesIO(geojson_str))
-        #import ipdb; ipdb.set_trace()
 
         try:
             layer = None
@@ -87,17 +85,20 @@ class LayerLoader():
                     # check if there is a difference between existing layer and new layer from GeoServer.
                     # Only save new layer if its different.
 
-                    #import ipdb; ipdb.set_trace()
                     layer = qs_layer[0]
+                    layer_updated = False
                     if layer_is_unchanged(layer_gdf1, layer.to_gdf):
                         # no change in geojson
                         if layer.active == False:
                             # if not already active, set active
                             layer.active = True
+                            layer_updated = True
 
                         if layer.url != self.url:
                             # url in masterlist_question may have been updated!
                             layer.url = True
+                            layer_updated = True
+
 
                         self.data = dict(status=HTTP_304_NOT_MODIFIED, data=f'Layer not updated (no change to existing layer in DB): {self.name}')
                     else:
@@ -105,8 +106,10 @@ class LayerLoader():
                         layer.geojson = geojson
                         layer.active = True
                         self.data = dict(status=HTTP_200_OK, data=f'Layer updated: {self.name}')
+                        layer_updated = True
 
-                    layer.save()
+                    if layer_updated:
+                        layer.save()
                 else:
                     # Layer does not exist in DB, so create
                     layer = Layer.objects.create(name=self.name, url=self.url, geojson=geojson)
@@ -115,13 +118,14 @@ class LayerLoader():
                 logger.info(self.data)
 
         except Exception as e: 
-            raise Exception(f'Error creating/updating layer from GeoServer.\n{str(e)}')
+            err_msg = f'Error getting layer from GeoServer {self.name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='load_layer_retrieve_error' )
         
         return  layer
 
 
 def layer_is_unchanged(gdf1, gdf2):
-    #import ipdb; ipdb.set_trace()
     gdf1 = gdf1.reindex(sorted(gdf1.columns), axis=1)
     gdf2 = gdf2.reindex(sorted(gdf2.columns), axis=1)
     return gdf1.loc[:, ~gdf1.columns.isin(['id', 'md5_rowhash'])].equals(gdf2.loc[:, ~gdf2.columns.isin(['id', 'md5_rowhash'])])
@@ -159,7 +163,6 @@ class DbLayerProvider():
         Returns: layer_info, layer_gdf
         '''
         try:
-            #import ipdb; ipdb.set_trace()
             # try getting from cache
             layer_info, layer_gdf = self.get_from_cache()
             if layer_gdf is not None:
@@ -175,8 +178,9 @@ class DbLayerProvider():
                     logger.info(f'Getting layer from GeoServer {self.layer_name} from:\n{self.url}')
 
         except Exception as e:
-            logger.error(f'Error getting layer {self.layer_name} from:\n{self.url}\n{str(e)}')
-            raise
+            err_msg = f'Error getting layer {self.layer_name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='get_layer_retrieve_error' )
 
         return layer_info, layer_gdf
 
@@ -198,8 +202,9 @@ class DbLayerProvider():
                 self.set_cache(layer_info, layer_gdf)
 
         except Exception as e:
-            logger.error(f'Error getting layer from file {self.layer_name} from:\n{filename}\n{str(e)}')
-            raise
+            err_msg = f'Error getting layer from file {self.layer_name} from:\n{filename}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='file_layer_retrieve_error' )
 
         return layer_info, layer_gdf
 
@@ -208,7 +213,6 @@ class DbLayerProvider():
         Returns: layer_info, layer_gdf
         '''
         try:
-            #import ipdb; ipdb.set_trace()
             loader = LayerLoader(url=self.url, name=self.layer_name)
             layer = loader.load_layer()
             layer_gdf = layer.to_gdf
@@ -216,8 +220,9 @@ class DbLayerProvider():
             self.set_cache(layer_info, layer_gdf)
 
         except Exception as e:
-            logger.error(f'Error getting layer from GeoServer {self.layer_name} from:\n{self.url}\n{str(e)}')
-            raise
+            err_msg = f'Error getting layer from GeoServer {self.layer_name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='geoserver_layer_retrieve_error' )
 
         return layer_info, layer_gdf
 
@@ -235,9 +240,11 @@ class DbLayerProvider():
 
             layer_info = self.layer_info(layer)
             self.set_cache(layer_info, layer_gdf)
+
         except Exception as e:
-            logger.error(f'Error getting layer {self.layer_name} from DB\n{str(e)}')
-            raise
+            err_msg = f'Error getting layer {self.layer_name} from DB\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='db_layer_retrieve_error' )
 
         return layer_info, layer_gdf
 

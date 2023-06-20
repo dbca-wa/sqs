@@ -20,10 +20,9 @@ from sqs.components.gisquery.models import Layer, LayerRequestLog
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
 from sqs.utils.loader_utils import LayerLoader
 from sqs.components.gisquery.serializers import (
-    GeoTestSerializer,
-    #FeatureGeometrySerializer,
-    DisturbanceLayerSerializer,
+    #DisturbanceLayerSerializer,
     DefaultLayerSerializer,
+    LayerRequestLogSerializer,
 )
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import LayerLoader
@@ -40,6 +39,101 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rest_framework.permissions import AllowAny
+
+class DefaultLayerViewSet(viewsets.ModelViewSet):
+    """ http://localhost:8002/api/v1/<APIKEY>/layers.json """
+    queryset = Layer.objects.filter().order_by('id')
+    serializer_class = DefaultLayerSerializer
+
+    @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
+    def csrf_token(self, request, *args, **kwargs):            
+        """ https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
+        """
+        return Response({"test":"get_test"})
+
+    @action(detail=True, methods=['GET',])
+    @traceback_exception_handler
+    def layer(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/layers/1/layer.json 
+            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer.json
+        """
+        instance = self.get_object()
+        serializer = self.get_serializer(instance) 
+        return response(serializer.data)
+
+    @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
+    def check_sqs_layer(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/layers/check_sqs_layer 
+            requests.get('http://localhost:8002/api/v1/layers/check_sqs_layer', params={'layer_name':'cddp:dpaw_regions'})
+
+        Check if layer is loaded and is available on SQS
+        """
+        layer_name = request.GET.get('layer_name')
+
+        if layer_name is None:
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
+
+        qs_layer = self.queryset.filter(name=layer_name)
+        if not qs_layer.exists():
+            return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer not available on SQS'})
+
+        timestamp = qs_layer[0].modified_date if qs_layer[0].modified_date else qs_layer[0].created_date
+        return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer is available on SQS. Last Updated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}'})
+
+class LayerRequestLogViewSet(viewsets.ModelViewSet):
+    queryset = LayerRequestLog.objects.filter().order_by('id')
+    serializer_class = LayerRequestLogSerializer
+
+    @action(detail=True, methods=['GET',])
+    @traceback_exception_handler
+    def request_log(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/logs/766/request_log.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log.json
+        """
+        #import ipdb; ipdb.set_trace()
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, remove_fields=['data']) 
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['GET',])
+    @traceback_exception_handler
+    def request_log_all(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/logs/766/request_log_all
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all
+        """
+        #import ipdb; ipdb.set_trace()
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, remove_fields=[]) 
+        return Response(serializer.data)
+
+
+
+#    @action(detail=False, methods=['POST',])
+#    @ip_check_required
+#    @traceback_exception_handler
+#    def add_layer(self, request, *args, **kwargs):            
+#        """ 
+#        curl -d @sqs/data/json/threatened_priority_flora.json -X POST http://localhost:8002/api/v1/layers/<APIKEY>/add_layer.json --header "Content-Type: application/json" --header "Accept: application/json"
+#        """
+#        layer_name = request.data['layer_name']
+#        url = request.data['url']
+#        geojson = request.data['geojson']
+#
+#        loader = LayerLoader(url, layer_name)
+#        layer = loader.load_layer(geojson=geojson)
+#        return Response(**loader.data)
+
+#    @action(detail=True, methods=['POST',])
+#    @traceback_exception_handler
+#    def layer_test(self, request, *args, **kwargs):            
+#        """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
+#            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer_test.json
+#            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/layer_test.json
+#        """
+#        return Response({"test":"test"})
 
 
 #class DisturbanceLayerViewSet(viewsets.ModelViewSet):
@@ -86,55 +180,6 @@ from rest_framework.permissions import AllowAny
 #        return Response(response)
 
 #class DefaultLayerViewSet(viewsets.GenericViewSet):
-class DefaultLayerViewSet(viewsets.ModelViewSet):
-    """ http://localhost:8002/api/v1/<APIKEY>/layers.json """
-    queryset = Layer.objects.filter().order_by('id')
-    serializer_class = DefaultLayerSerializer
-
-    @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
-    def csrf_token(self, request, *args, **kwargs):            
-        """ https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/csrf_token.json
-        """
-        return Response({"test":"get_test"})
-
-    @action(detail=False, methods=['POST',])
-    @ip_check_required
-    @traceback_exception_handler
-    def add_layer(self, request, *args, **kwargs):            
-        """ 
-        curl -d @sqs/data/json/threatened_priority_flora.json -X POST http://localhost:8002/api/v1/layers/<APIKEY>/add_layer.json --header "Content-Type: application/json" --header "Accept: application/json"
-        """
-        layer_name = request.data['layer_name']
-        url = request.data['url']
-        geojson = request.data['geojson']
-
-        loader = LayerLoader(url, layer_name)
-        layer = loader.load_layer(geojson=geojson)
-        return Response(**loader.data)
-
-    @action(detail=True, methods=['GET',])
-    @ip_check_required
-    @traceback_exception_handler
-    def layer(self, request, *args, **kwargs):            
-        """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/layer.json
-        """
-        #import ipdb; ipdb.set_trace()
-        instance = self.get_object()
-        serializer = self.get_serializer(instance) 
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['POST',])
-    @traceback_exception_handler
-    def layer_test(self, request, *args, **kwargs):            
-        """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer_test.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/layer_test.json
-        """
-        return Response({"test":"test"})
-
 
 #    @action(detail=False, methods=['POST',])
 #    @ip_check_required

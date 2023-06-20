@@ -60,8 +60,6 @@ def apikey_required(func):
     return wrapper
 
 def apiview_response_exception_handler(func):
-    ''' IP Check and API TOKEN Required
-    '''
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:

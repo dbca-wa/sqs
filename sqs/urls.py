@@ -22,6 +22,7 @@ schema_view = get_swagger_view(title='SQS API')
 # API patterns
 router = routers.DefaultRouter()
 router.register(r'layers', gisquery_api.DefaultLayerViewSet, basename='layers')
+router.register(r'logs', gisquery_api.LayerRequestLogViewSet, basename='logs')
 #router.register(r'das', gisquery_api.DisturbanceLayerViewSet, basename='das')
 
 api_patterns = [
@@ -36,6 +37,7 @@ urlpatterns = [
     url(r'^$', TemplateView.as_view(template_name='sqs/base2.html'), name='home'),
 
     url(r'api/v1/das', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
+    url(r'api/v1/add_layer', csrf_exempt(gisquery_views.DefaultLayerProviderView.as_view()), name='add_layer'),
     url(r'api/v1/point_query', csrf_exempt(gisquery_views.PointQueryLayerView.as_view()), name='point_query'),
 
     #url(r'api/v1/das/(?P<apikey>[\w\-]+)', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),

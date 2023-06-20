@@ -16,41 +16,29 @@ import traceback
 from sqs.components.gisquery.models import Layer, LayerRequestLog
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
-from sqs.utils.loader_utils import LayerLoader
-from sqs.decorators import basic_exception_handler, apikey_required
+from sqs.utils.loader_utils import DbLayerProvider
 
 from sqs.components.api import models as api_models
 from sqs.components.api import utils as api_utils
-from sqs.decorators import ip_check_required, traceback_exception_handler, apiview_response_exception_handler
+from sqs.decorators import ip_check_required, basic_exception_handler, traceback_exception_handler, apiview_response_exception_handler
+from sqs.exceptions import LayerProviderException
 
 import logging
 logger = logging.getLogger(__name__)
-
-
-class TestView(View):
-
-    @csrf_exempt
-    def post(self, request):
-        return HttpResponse('This is a POST only view')
-
-    def get(self, request):
-        return HttpResponse('This is a GET only view')
 
 
 class DisturbanceLayerView(View):
     queryset = Layer.objects.filter().order_by('id')
 
     @csrf_exempt
-    @ip_check_required
     def post(self, request):            
-        """ 
+        """ Intersect user provided Shapefile/GeoJSON with SQS layers to infer required responses
+
         import requests
         from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
         requests.post('http://localhost:8002/api/v1/das/spatial_query/', json=CDDP_REQUEST_JSON)
-        apikey='1234'
-        r=requests.post(url=f'http://localhost:8002/api/v1/das/{apikey}/spatial_query/', json=DAS_QUERY_JSON)
+        r=requests.post(url=f'http://localhost:8002/api/v1/das/spatial_query/', json=DAS_QUERY_JSON)
         """
-        #import ipdb; ipdb.set_trace()
         try:
             data = json.loads(request.POST['data'])
 
@@ -73,25 +61,31 @@ class DisturbanceLayerView(View):
 
             dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
             response = dlq.query()
+            response['sqs_log_url'] = request.build_absolute_uri().replace('das/spatial_query', f'logs/{request_log.id}/request_log')
+            response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
             request_log.response = response
             request_log.save()
+        except LayerProviderException as e:
+            raise LayerProviderException(str(e))
         except Exception as e:
             logger.error(traceback.print_exc())
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
 
+        #import ipdb; ipdb.set_trace()
         return JsonResponse(response)
+
 
 class PointQueryLayerView(View):
     queryset = Layer.objects.filter().order_by('id')
 
     @csrf_exempt
-    @ip_check_required
     def post(self, request):            
-        ''' data = {"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}
+        ''' Query layer to determine layer properties give latitude, longitude and layer name
+
+            data = {"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}
             r=requests.post('http://localhost:8002/api/v1/point_query', data={'data': json.dumps(data)})
         '''
-        #import ipdb; ipdb.set_trace()
         try:
             data = json.loads(request.POST['data'])
 
@@ -109,5 +103,55 @@ class PointQueryLayerView(View):
 
         return JsonResponse(response)
 
+
+class DefaultLayerProviderView(View):
+    queryset = Layer.objects.filter().order_by('id')
+    """ http://localhost:8002/api/v1/layers.json """
+
+    @csrf_exempt
+    def post(self, request, *args, **kwargs):            
+        ''' Allows to create/update layer 
+                1. sets active, if inactive 
+                2. creates/updates layer from Geoserver
+        '''
+        try:
+            layer_details = json.loads(request.POST['layer_details'])
+
+            layer_name = layer_details.get('layer_name')
+            url = layer_details.get('layer_url')
+
+            if layer_name is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
+            if url is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer url specified in Request'})
+
+            qs_layer = self.queryset.filter(name=layer_name)
+            if qs_layer.exists():
+                cur_version = qs_layer[0].version
+            layer_info, layer_gdf = DbLayerProvider(layer_name, url).get_layer_from_geoserver()
+
+            #if layer_info.get('layer_version') > cur_version:
+        
+
+        except LayerProviderException as e:
+            logger.error(traceback.print_exc())
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver if layer/GeoJSON exists. URL: {url}'})
+
+        except Exception as e:
+            logger.error(traceback.print_exc())
+            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
+
+        layer_info['message'] = f'Layer {layer_info["layer_name"]} Updated.'
+        return JsonResponse(layer_info)
+
+
+class TestView(View):
+
+    @csrf_exempt
+    def post(self, request):
+        return HttpResponse('This is a POST only view')
+
+    def get(self, request):
+        return HttpResponse('This is a GET only view')
 
 
