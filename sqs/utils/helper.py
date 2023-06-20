@@ -64,7 +64,7 @@ class DefaultOperator():
         try:
             overlay_result = self.overlay_gdf[column_name].tolist()
         except KeyError as e:
-            layer_name = self.cddp_question['layer_name']
+            layer_name = self.cddp_question['layer']['layer_name']
             _list = HelperUtils.pop_list(self.overlay_gdf.columns.to_list())
             logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
 

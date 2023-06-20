@@ -20,7 +20,6 @@ if DEBUG:
 else:
     ALLOWED_HOSTS = env('ALLOWED_HOSTS', [])
 
-
 ROOT_URLCONF = 'sqs.urls'
 SITE_ID = 1
 DEPT_DOMAINS = env('DEPT_DOMAINS', ['dpaw.wa.gov.au', 'dbca.wa.gov.au'])
@@ -111,7 +110,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'dbca_utils.middleware.SSOLoginMiddleware',
     #'sqs.middleware.CacheControlMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware'
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 TEMPLATES = [
     {

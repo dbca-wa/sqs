@@ -4,6 +4,7 @@ import json
 
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper
 #from sqs.utils.helper  import SchemaSearch
+from sqs.exceptions import LayerProviderException
 
 import logging
 logger = logging.getLogger(__name__)
@@ -56,7 +57,6 @@ class DisturbancePrefillData(object):
             for item in schema:
                 #import ipdb; ipdb.set_trace()
                 self.data.update(self._populate_data_from_item(item, 0, ''))
-               
         except:
             traceback.print_exc()
         return [self.data]

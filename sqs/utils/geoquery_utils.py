@@ -21,6 +21,7 @@ from sqs.utils.helper import (
     #pop_list,
 )
 from sqs.utils import HelperUtils
+from sqs.exceptions import LayerProviderException
 
 import logging
 logger = logging.getLogger(__name__)
@@ -118,7 +119,6 @@ class DisturbanceLayerQueryHelper():
         That is, find the layer_name to which question belong then return all questions in that layer group.
         """
         try:
-            #import ipdb; ipdb.set_trace()
             for question_group in self.masterlist_questions:
                 if question_group['question_group'] == question:
                     return question_group
@@ -151,8 +151,8 @@ class DisturbanceLayerQueryHelper():
             question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date()
             if question_expiry > today.date():
   
-                layer_name = cddp_question['layer_name']
-                layer_url = cddp_question['layer_url']
+                layer_name = cddp_question['layer']['layer_name']
+                layer_url = cddp_question['layer']['layer_url']
                 layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
 
                 column_name = cddp_question['column_name']
@@ -176,12 +176,10 @@ class DisturbanceLayerQueryHelper():
                     error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
                     logger.error(error_msg)
 
-                #import ipdb; ipdb.set_trace()
                 # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                 operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
                 operator_result = operator.comparison_result()
 
-                #import ipdb; ipdb.set_trace()
                 res = dict(
                         question=cddp_question['question'],
                         answer=cddp_question['answer_mlq'],
@@ -239,7 +237,6 @@ class DisturbanceLayerQueryHelper():
             question = {}
             details = {}
             sqs_data = {}
-            #import ipdb; ipdb.set_trace()
             for label in item_option_labels:
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
@@ -277,7 +274,6 @@ class DisturbanceLayerQueryHelper():
         '''
         response = {}
         try:
-            #import ipdb; ipdb.set_trace()
             schema_question = item['label']
             item_options    = item['children']
 
@@ -290,11 +286,9 @@ class DisturbanceLayerQueryHelper():
             assessor_info=[]
             layer_details=[]
             question = {}
-            #import ipdb; ipdb.set_trace()
             for _d in item_options_dict:
                 name = _d['name']
                 label = _d['label']
-                #import ipdb; ipdb.set_trace()
                 for question in processed_questions:
                     if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         result.append(label) # result is in an array list 
@@ -318,7 +312,6 @@ class DisturbanceLayerQueryHelper():
         except Exception as e:
             logger.error(f'CHECKBOX: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
-        #import ipdb; ipdb.set_trace()
         return response
 
     def find_select(self, item):
@@ -342,7 +335,6 @@ class DisturbanceLayerQueryHelper():
             layer_details=[]
             question = processed_questions[0]
             details = {}
-            #import ipdb; ipdb.set_trace()
             for _d in item_options_dict:
                 label = _d['label']
 
@@ -381,7 +373,6 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            #import ipdb; ipdb.set_trace()
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
@@ -427,7 +418,6 @@ class DisturbanceLayerQueryHelper():
             schema_section  = item['name']
             schema_label    = schema_question
 
-            #import ipdb; ipdb.set_trace()
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
@@ -447,6 +437,8 @@ class DisturbanceLayerQueryHelper():
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 
+        except LayerProviderException as e:
+            raise LayerProviderException(str(e))
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
@@ -471,7 +463,6 @@ class LayerQuerySingleHelper():
 
     def spatial_join(self):
 
-        #import ipdb; ipdb.set_trace()
         response = [] 
         response2 = {} 
         proponent_single = []
@@ -480,7 +471,7 @@ class LayerQuerySingleHelper():
         today = datetime.now(pytz.timezone(settings.TIME_ZONE))
 
         for data in self.cddp_info:
-            layer_name = data['layer_name']
+            layer_name = data['layer']['layer_name']
 
             column_name = data['column_name']
             operator = data['operator']
@@ -535,7 +526,6 @@ class PointQueryHelper():
 
     def spatial_join(self, predicate='within'):
 
-        #import ipdb; ipdb.set_trace()
         layer = Layer.objects.get(name=self.layer_name)
         layer_gdf = layer.to_gdf
 
