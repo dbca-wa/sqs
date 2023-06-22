@@ -57,11 +57,17 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     @traceback_exception_handler
     def layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/1/layer.json 
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/last/layer.json
         """
-        instance = self.get_object()
+        #import ipdb; ipdb.set_trace()
+        pk = kwargs.get('pk')
+        if pk == 'last':
+            instance = self.queryset.last()
+        else:
+            instance = self.get_object()
+
         serializer = self.get_serializer(instance) 
-        return response(serializer.data)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -92,9 +98,15 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
         """
         #import ipdb; ipdb.set_trace()
-        instance = self.get_object()
+        pk = kwargs.get('pk')
+        if pk == 'last':
+            instance = self.queryset.last()
+        else:
+            instance = self.get_object()
+
         serializer = self.get_serializer(instance, remove_fields=['data']) 
         return Response(serializer.data)
 
@@ -103,9 +115,15 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     def request_log_all(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log_all
         """
         #import ipdb; ipdb.set_trace()
-        instance = self.get_object()
+        pk = kwargs.get('pk')
+        if pk == 'last':
+            instance = self.queryset.last()
+        else:
+            instance = self.get_object()
+
         serializer = self.get_serializer(instance, remove_fields=[]) 
         return Response(serializer.data)
 
