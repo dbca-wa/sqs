@@ -71,12 +71,13 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
-    def check_sqs_layer(self, request, *args, **kwargs):            
+    def check_layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/check_sqs_layer 
             requests.get('http://localhost:8002/api/v1/layers/check_sqs_layer', params={'layer_name':'cddp:dpaw_regions'})
 
         Check if layer is loaded and is available on SQS
         """
+        #import ipdb; ipdb.set_trace()
         layer_name = request.GET.get('layer_name')
 
         if layer_name is None:
@@ -84,7 +85,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         qs_layer = self.queryset.filter(name=layer_name)
         if not qs_layer.exists():
-            return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer not available on SQS'})
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Layer not available on SQS'})
 
         timestamp = qs_layer[0].modified_date if qs_layer[0].modified_date else qs_layer[0].created_date
         return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer is available on SQS. Last Updated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}'})
@@ -92,6 +93,18 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 class LayerRequestLogViewSet(viewsets.ModelViewSet):
     queryset = LayerRequestLog.objects.filter().order_by('id')
     serializer_class = LayerRequestLogSerializer
+
+    @traceback_exception_handler
+    def list(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/logs/
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs?records=5
+        """
+        records = self.request.GET.get('records', 20)
+        queryset = self.queryset.all().order_by('-pk')[:int(records)]
+        serializer = self.get_serializer(queryset, many=True, remove_fields=['data', 'response'])
+        return Response(serializer.data)
+
 
     @action(detail=True, methods=['GET',])
     @traceback_exception_handler

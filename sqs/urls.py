@@ -39,6 +39,7 @@ urlpatterns = [
     url(r'api/v1/das', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
     url(r'api/v1/add_layer', csrf_exempt(gisquery_views.DefaultLayerProviderView.as_view()), name='add_layer'),
     url(r'api/v1/point_query', csrf_exempt(gisquery_views.PointQueryLayerView.as_view()), name='point_query'),
+    #url(r'api/v1/check_layer', csrf_exempt(gisquery_views.CheckLayerView.as_view()), name='check_layer'),
 
     #url(r'api/v1/das/(?P<apikey>[\w\-]+)', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
 #    url(r'api/v1/view_test', csrf_exempt(gisquery_views.TestView.as_view()), name='view_test'),
