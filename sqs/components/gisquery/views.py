@@ -115,6 +115,7 @@ class DefaultLayerProviderView(View):
                 2. creates/updates layer from Geoserver
         '''
         try:
+            #import ipdb; ipdb.set_trace()
             layer_details = json.loads(request.POST['layer_details'])
 
             layer_name = layer_details.get('layer_name')
@@ -153,5 +154,41 @@ class TestView(View):
 
     def get(self, request):
         return HttpResponse('This is a GET only view')
+
+
+#class CheckLayerView(View):
+#    queryset = Layer.objects.filter().order_by('id')
+#    """ http://localhost:8002/api/v1/layers.json """
+#
+#    @csrf_exempt
+#    def post(self, request, *args, **kwargs):            
+#        ''' Allows to create/update layer 
+#                1. sets active, if inactive 
+#                2. creates/updates layer from Geoserver
+#        '''
+#        try:
+#
+#            import ipdb; ipdb.set_trace()
+#            data = request.POST.get('data')
+#            if data is None:
+#                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_details specified in Request'})
+#
+#            data = json.loads(data)
+#            if 'layer_name' not in data or data['layer_name]' is None:
+#                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
+#
+#            qs_layer = self.queryset.filter(name=layer_name)
+#            if not qs_layer.exists():
+#                return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer not available on SQS'})
+#
+#            timestamp = qs_layer[0].modified_date if qs_layer[0].modified_date else qs_layer[0].created_date
+#
+#        except Exception as e:
+#            logger.error(traceback.print_exc())
+#            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
+#
+#        return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer is available on SQS. Last Updated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}'})
+
+
 
 
