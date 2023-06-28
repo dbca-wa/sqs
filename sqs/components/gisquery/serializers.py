@@ -30,6 +30,7 @@ class LayerRequestLogSerializer(serializers.ModelSerializer):
         model = LayerRequestLog
         fields=(
             'id',
+            'request_type',
             'system',
             'app_id',
             'when',

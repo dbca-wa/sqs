@@ -45,6 +45,7 @@ class DisturbanceLayerView(View):
             proposal = data.get('proposal')
             geojson = data.get('geojson')
             masterlist_questions = data.get('masterlist_questions')
+            request_type = data.get('request_type')
             system = data.get('system')
 
             if proposal is None or proposal.get('schema') is None or proposal.get('id') is None:
@@ -62,8 +63,10 @@ class DisturbanceLayerView(View):
             dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
             response = dlq.query()
             response['sqs_log_url'] = request.build_absolute_uri().replace('das/spatial_query', f'logs/{request_log.id}/request_log')
+            response['request_type'] = request_type
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
+            request_log.request_type = request_type
             request_log.response = response
             request_log.save()
         except LayerProviderException as e:
