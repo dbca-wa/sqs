@@ -39,11 +39,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rest_framework.permissions import AllowAny
+#from rest_framework.schemas import ManualSchema
+#import coreapi
+#import coreschema
 
 class DefaultLayerViewSet(viewsets.ModelViewSet):
     """ http://localhost:8002/api/v1/<APIKEY>/layers.json """
     queryset = Layer.objects.filter().order_by('id')
     serializer_class = DefaultLayerSerializer
+    http_method_names = ['get']
+
+#    schema = ManualSchema(fields=[
+#	    coreapi.Field(
+#		"name",
+#		required=False,
+#		location="query",
+#		schema=coreschema.String()
+#	    ),
+#        ]
+#    )
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -93,6 +107,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 class LayerRequestLogViewSet(viewsets.ModelViewSet):
     queryset = LayerRequestLog.objects.filter().order_by('id')
     serializer_class = LayerRequestLogSerializer
+    http_method_names = ['get'] #, 'post', 'patch', 'delete']
 
     @traceback_exception_handler
     def list(self, request, *args, **kwargs):            
@@ -112,11 +127,19 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=all ('all'/'partial'/'single')
         """
         #import ipdb; ipdb.set_trace()
         pk = kwargs.get('pk')
+        request_type = request.GET.get('request_type')
+
         if pk == 'last':
             instance = self.queryset.last()
+        elif request_type is not None:
+            qs = self.queryset.filter(id=pk, request_type=request_type.upper())
+            if not qs.exists():
+                return Response(status.HTTP_400_BAD_REQUEST)
+            instance = qs[0]
         else:
             instance = self.get_object()
 
@@ -129,11 +152,19 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/logs/766/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log_all
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all?request_type=all ('all'/'partial'/'single')
         """
         #import ipdb; ipdb.set_trace()
         pk = kwargs.get('pk')
+        request_type = request.GET.get('request_type')
+
         if pk == 'last':
             instance = self.queryset.last()
+        elif request_type is not None:
+            qs = self.queryset.filter(id=pk, request_type=request_type.upper())
+            if not qs.exists():
+                return Response(status.HTTP_400_BAD_REQUEST)
+            instance = qs[0]
         else:
             instance = self.get_object()
 

@@ -126,6 +126,16 @@ class Layer(RevisionedMixin):
         return f'{self.name}, version {self.version}'
 
 class LayerRequestLog(models.Model):
+    ALL = 'ALL'
+    PARTIAL = 'PARTIAL'
+    SINGLE = 'SINGLE'
+    REQUEST_TYPE_CHOICES = (
+        (ALL, 'ALL'),
+        (PARTIAL, 'PARTIAL'),
+        (SINGLE, 'SINGLE'),
+    )
+
+    request_type = models.CharField(max_length=40, choices=REQUEST_TYPE_CHOICES, default=REQUEST_TYPE_CHOICES[0][0])
     system = models.CharField('Application name', max_length=64)
     app_id = models.SmallIntegerField('Application ID')
     data = JSONField('Request query from external system')
