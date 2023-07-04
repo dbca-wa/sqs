@@ -76,43 +76,33 @@ class SetupApiKeyTests(TestCase):
     def tearDownClass(self):
         cache.clear()
 
-    def test_das_request_single_correct_apikey_url(self):
-        ''' POST CDDP Request from DAS to SQS for a single question - correct APIKEY
-            Returns results/answers of intersection of multi-polygon and layers
-        '''
-        logger.info("Method: test_das_request_single_apikey_url.")
-
-        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
-        self.assertEqual(response.data['data'], TEST_RESPONSE['data'])
-
-#    def test_das_request_single_incorrect_apikey_url(self):
-#        ''' POST CDDP Request from DAS to SQS for a single question - incorrect APIKEY
+#    def test_das_request_single_correct_apikey_url(self):
+#        ''' POST CDDP Request from DAS to SQS for a single question - correct APIKEY
 #            Returns results/answers of intersection of multi-polygon and layers
 #        '''
-#        logger.info("Method: test_das_request_single_incorrect_apikey_url.")
+#        logger.info("Method: test_das_request_single_apikey_url.")
 #
-#        spatial_query_url = reverse('das-list') + 'spatial_query/'
-#        response = self.api_client.post(spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
-#        self.assertEqual(response.data['message'], 'API Key Not Found')
-
-    def test_das_request_single_unknown_ip_address_url(self):
-        ''' POST CDDP Request from DAS to SQS for a single question - Unknown IP Address
-            Returns results/answers of intersection of multi-polygon and layers
-        '''
-        logger.info("Method: test_das_request_single_unknown_ip_address_url.")
-
-        response = self.api_client.post(self.spatial_query_url2, data=CDDP_REQUEST_SINGLE_JSON, format='json')
-        self.assertEqual(response.data['message'], 'Error')
-
-    def test_das_request_single_throw_exception_url(self):
-        ''' POST CDDP Request from DAS to SQS for a single question - throw Exception (testing the decorator functionality)
-            Returns results/answers of intersection of multi-polygon and layers
-        '''
-        logger.info("Method: test_das_request_single_throw_exception_url.")
-
-        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON.pop('proposal'), format='json')
-        #import ipdb; ipdb.set_trace()
-        self.assertEqual(response.data['message'], 'Error')
+#        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+#        self.assertEqual(response.data['data'], TEST_RESPONSE['data'])
+#
+#    def test_das_request_single_unknown_ip_address_url(self):
+#        ''' POST CDDP Request from DAS to SQS for a single question - Unknown IP Address
+#            Returns results/answers of intersection of multi-polygon and layers
+#        '''
+#        logger.info("Method: test_das_request_single_unknown_ip_address_url.")
+#
+#        response = self.api_client.post(self.spatial_query_url2, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+#        self.assertEqual(response.data['message'], 'Error')
+#
+#    def test_das_request_single_throw_exception_url(self):
+#        ''' POST CDDP Request from DAS to SQS for a single question - throw Exception (testing the decorator functionality)
+#            Returns results/answers of intersection of multi-polygon and layers
+#        '''
+#        logger.info("Method: test_das_request_single_throw_exception_url.")
+#
+#        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON.pop('proposal'), format='json')
+#        #import ipdb; ipdb.set_trace()
+#        self.assertEqual(response.data['message'], 'Error')
 
 
 

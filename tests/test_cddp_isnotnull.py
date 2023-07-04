@@ -72,6 +72,7 @@ class SetupCddpIsNotNullTests(TestCase):
         logger.info("Method: test_select_isnotnull.")
         self.dlq = DisturbanceLayerQuery(select.MASTERLIST_QUESTIONS_GBQ, select.GEOJSON, select.PROPOSAL)
         res = self.dlq.query()
+        #import ipdb; ipdb.set_trace()
         self.assertTrue(res['data'] == select.TEST_RESPONSE['data'])
 
     def test_multiselect_isnotnull(self):

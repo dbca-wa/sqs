@@ -151,8 +151,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 52,
         "question": "1.7.1 Are there any implications if the proposal is delayed?",
         "answer_mlq": "Yes",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-12-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -166,7 +164,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -177,8 +187,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 52,
         "question": "1.7.1.1 Outline implications of postponement",
         "answer_mlq": "",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-12-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -192,7 +200,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(AssessorPrefix)",
         "no_polygons_assessor": -1,
         "assessor_info": "::lga_label",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -203,8 +223,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 52,
         "question": "1.7.1.2 Specify management actions to address fixed proposal date requirements",
         "answer_mlq": "",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "expiry": "2024-12-01",
         "visible_to_proponent": True,
@@ -219,7 +237,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(AssessorPrefix)",
         "no_polygons_assessor": -1,
         "assessor_info": "::region",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -230,8 +260,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 48,
         "question": "1.7 Are these planned dates",
         "answer_mlq": "Indicative",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -245,14 +273,24 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       },
       {
         "id": 49,
         "question": "1.7 Are these planned dates",
         "answer_mlq": "Fixed",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -266,14 +304,24 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       },
       {
         "id": 50,
         "question": "1.7 Are these planned dates",
         "answer_mlq": "Combination",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -287,7 +335,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   }

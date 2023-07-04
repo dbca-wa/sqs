@@ -65,7 +65,6 @@ class SetupCddpProponentAnswerTests(TestCase):
         logger.info("Method: test_other_isnotnull_visible.")
         self.dlq = DisturbanceLayerQuery(visible.MASTERLIST_QUESTIONS_GBQ, visible.GEOJSON, visible.PROPOSAL)
         res = self.dlq.query()
-        #import ipdb; ipdb.set_trace()
         self.assertTrue(res['data'] == visible.TEST_RESPONSE['data'])
 
     def test_other_isnotnull_colname_in_answer(self):

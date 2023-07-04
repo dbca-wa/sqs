@@ -64,8 +64,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 56,
         "question": "10.0 Proposal another subtitle (Textbox Component)?",
         "answer_mlq": "",
-        "layer_name": "cddp:threatened_priority_flora",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:threatened_priority_flora&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -79,7 +77,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(PrefixAssessor)",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:threatened_priority_flora",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:threatened_priority_flora&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default", 
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -90,8 +100,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 55,
         "question": "9.0 Proposal another subtitle (Textbox Component)?",
         "answer_mlq": "",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -105,7 +113,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(PrefixAssessor)",
         "no_polygons_assessor": -1,
         "assessor_info": "(AssessorInfo) Static Assessor Text",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default", 
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -117,8 +137,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "question": "7.0 Proposal title (Text Component)?",
         "question": "8.0 Proposal subtitle (Textbox Component)?",
         "answer_mlq": "",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -132,7 +150,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(PrefixAssessor) Item/List of intersection result:",
         "no_polygons_assessor": -1,
         "assessor_info": "::region",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default", 
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -158,7 +188,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(PrefixAssessor) Item/List of intersection result:",
         "no_polygons_assessor": -1,
         "assessor_info": "::office",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default", 
+          "can_user_edit": True
+        }
       }
     ]
   }
@@ -265,18 +307,9 @@ TEST_RESPONSE = {
     }
   ],
   "add_info_assessor": {
-      "Section7-0": {
-	"proponent_answer": "(PrefixProponent): KALGOORLIE, ALBANY",
-	"assessor_answer": "(PrefixAssessor) Item/List of intersection result: KALGOORLIE, ALBANY"
-      },
-      "Section8-0": {
-	"proponent_answer": "(PrefixProponent): GOLDFIELDS, SOUTH COAST",
-	"assessor_answer": "(PrefixAssessor) Item/List of intersection result: GOLDFIELDS, SOUTH COAST"
-      },
-      "Section9-0": {
-	"proponent_answer": "(PrefixProponent): (Proponent Answer Text).",
-	"assessor_answer": "(PrefixAssessor) (AssessorInfo) Static Assessor Text"
-      }
+      "Section7-0": "(PrefixAssessor) Item/List of intersection result: KALGOORLIE, ALBANY", 
+      "Section8-0": "(PrefixAssessor) Item/List of intersection result: GOLDFIELDS, SOUTH COAST", 
+      "Section9-0": "(PrefixAssessor) (AssessorInfo) Static Assessor Text"
   }
 }
 

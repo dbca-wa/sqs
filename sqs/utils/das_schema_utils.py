@@ -41,21 +41,16 @@ class DisturbancePrefillData(object):
     def __init__(self, layer_query_helper):
         self.layer_query_helper = layer_query_helper
         orig_data = self.layer_query_helper.proposal.get('data')
-        #self.flat_orig_data = SchemaSearch(orig_data).get_flat_dict()
 
         self.data = {}
-        #self.data = layer_query_helper.proposal.get('data')[0]
         self.layer_data = []
         self.add_info_assessor = {}
 
     def prefill_data_from_shape(self):
-        #data = {}
-
         schema = self.layer_query_helper.proposal.get('schema')
 
         try:
             for item in schema:
-                #import ipdb; ipdb.set_trace()
                 self.data.update(self._populate_data_from_item(item, 0, ''))
         except:
             traceback.print_exc()
@@ -72,9 +67,7 @@ class DisturbancePrefillData(object):
 
         if 'children' not in item:
             if item['type'] =='checkbox':
-                #import ipdb; ipdb.set_trace()
                 if sqs_value:
-                    #import ipdb; ipdb.set_trace()
                     for val in sqs_value:
                         if val==item['label']:
                             item_data[item['name']]='on'
@@ -85,20 +78,12 @@ class DisturbancePrefillData(object):
             else:
                     if item['type'] == 'multi-select':
                         #Get value from SQS. Value should be an array of the correct options.
-                        #sqs_value=item['options'][1]['value']
-                        #sqs_value=[sqs_value]
                         
                         # don't overwrite if propsal['data'] already has a value set
-                        #sqs_values = self.flat_orig_data.get(item['name'])
-                        #import ipdb; ipdb.set_trace()
                         sqs_dict = self.layer_query_helper.find_multiselect(item)
                         sqs_values = sqs_dict.get('result')
-                        #assessor_info = sqs_dict.get('assessor_info')
-                        #layer_details = sqs_dict.get('layer_details')
                         
                         if sqs_values:
-                            #self.add_info_assessor[item['name']] = assessor_info
-                            #self._update_layer_info(layer_details)
                             self._update_assessor_info(item, sqs_dict)
                             self._update_layer_info(sqs_dict)
 
@@ -114,21 +99,14 @@ class DisturbancePrefillData(object):
 
                     elif item['type'] in ['radiobuttons', 'select']:
                         #Get value from SQS
-                        #sqs_value=item['options'][1]['value']
                         if item['type'] == 'select':
                             sqs_dict = self.layer_query_helper.find_select(item)
-                            #import ipdb; ipdb.set_trace()
                         elif item['type'] == 'radiobuttons':
                             sqs_dict = self.layer_query_helper.find_radiobutton(item)
-                            #import ipdb; ipdb.set_trace()
 
                         sqs_value = sqs_dict.get('result')
-                        #assessor_info = sqs_dict.get('assessor_info')
                         layer_details = sqs_dict.get('layer_details')
                         if sqs_value:
-                            #self.add_info_assessor[item['name']] = sqs_value.get('assessor_answer')
-                            #self.add_info_assessor[item['name']] = assessor_info
-                            #self._update_layer_info(layer_details)
                             self._update_assessor_info(item, sqs_dict)
                             self._update_layer_info(sqs_dict)
 
@@ -141,32 +119,25 @@ class DisturbancePrefillData(object):
 
                     elif item['type'] in ['text', 'text_area']:
                         #All the other types e.g. text_area, text, date (except label).
-                        #import ipdb; ipdb.set_trace()
                         if item['type'] != 'label':
                             sqs_dict = self.layer_query_helper.find_other(item)
                             #import ipdb; ipdb.set_trace()
-                            #sqs_values = sqs_dict.get('result')
-                            #layer_details = sqs_dict.get('layer_details')
                             assessor_info = sqs_dict.get('assessor_info')
+                            if sqs_dict.get('layer_details'):
+                                item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
+                            self._update_layer_info(sqs_dict)
 
                             #if sqs_values:
                             if assessor_info:
-                                #item_data[item['name']] = assessor_info.get('proponent_answer')
-                                item_data[item['name']] = assessor_info
-                                #self.add_info_assessor[item['name']] = assessor_info.get('assessor_answer')
-                                #self._update_layer_info(layer_details)
                                 self._update_assessor_info(item, sqs_dict)
-                                self._update_layer_info(sqs_dict)
+                                #self._update_layer_info(sqs_dict)
                     else:
                         #All the other types e.g. date, number etc (except label).
                         pass
         else:
-            #import ipdb; ipdb.set_trace()
-            #sqs_values = []
             if 'repetition' in item:
                 item_data = self.generate_item_data_shape(extended_item_name,item,item_data,1,suffix)
             else:
-                #item_data = generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
                 #Check if item has checkbox childer
                 if self.check_checkbox_item(extended_item_name, item, item_data,1,suffix):
                     #make a call to sqs for item
@@ -176,13 +147,8 @@ class DisturbancePrefillData(object):
                     #    SQS will return a list of checkbox's answersfound eg. ['National park', 'Nature reserve']
 
                     sqs_dict = self.layer_query_helper.find_checkbox(item)
-                    #import ipdb; ipdb.set_trace()
                     sqs_values = sqs_dict.get('result')
-                    #layer_details = sqs_dict.get('layer_details')
-                    #assessor_info = sqs_dict.get('assessor_info')
                     if sqs_values:
-                        #self.add_info_assessor[item['name']] = assessor_info
-                        #item_layer_data = self._update_layer_info(layer_details)
                         self._update_assessor_info(item, sqs_dict)
                         item_layer_data = self._update_layer_info(sqs_dict)
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix, sqs_values)
@@ -192,19 +158,12 @@ class DisturbancePrefillData(object):
 
         if 'conditions' in item:
             try: 
-                #if item['name'] == 'Section0-7': 
-                #    import ipdb; ipdb.set_trace()
-                #    pass
-               
-                #for condition in list(item['conditions'].keys()):
                 for condition in item['conditions'].keys():
                     if item_data and condition==item_data[item['name']]:
                         for child in item['conditions'][condition]:
                             item_data.update(self._populate_data_from_item(child,  repetition, suffix))
             except Exception as e:
-                #import ipdb; ipdb.set_trace()
                 logger.error(f'Error "conditions": {str(e)}')
-                pass
 
         return item_data
 
@@ -229,11 +188,10 @@ class DisturbancePrefillData(object):
         return checkbox_item
 
     def _update_layer_info(self, sqs_dict):
-        #import ipdb; ipdb.set_trace()
         layer_info = []
 
         try:
-            layer_details = sqs_dict.get('layer_details')
+            layer_details = sqs_dict.get('layer_details', [])
             for ld in layer_details:
                 self.layer_data.append(
                     dict(
@@ -244,14 +202,13 @@ class DisturbancePrefillData(object):
                     )
                 )
         except Exception as e:
+            traceback.print_exc()
             logger.error(f'Error: {str(e)}')
-            #import ipdb; ipdb.set_trace()
 
     def _update_assessor_info(self, item, sqs_dict):
         assessor_info = sqs_dict.get('assessor_info')
         if assessor_info:
             self.add_info_assessor[item['name']] = assessor_info
-        #pass
 
 
 

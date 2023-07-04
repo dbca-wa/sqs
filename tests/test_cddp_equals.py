@@ -73,9 +73,9 @@ class SetupCddpEqualsTests(TestCase):
     # TODO Need to confirm how a response from SQS is to  be handled for 'IsNull'
     def test_select_equals(self):
         logger.info("Method: test_select_equals.")
-        #import ipdb; ipdb.set_trace()
         self.dlq = DisturbanceLayerQuery(select.MASTERLIST_QUESTIONS_GBQ, select.GEOJSON, select.PROPOSAL)
         res = self.dlq.query()
+        #import ipdb; ipdb.set_trace()
         self.assertTrue(res['data'] == select.TEST_RESPONSE['data'])
 
     def test_multiselect_equals(self):

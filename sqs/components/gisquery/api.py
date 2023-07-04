@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, B
 from rest_framework.pagination import PageNumberPagination
 import traceback
 import json
+from datetime import datetime
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
@@ -39,25 +40,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rest_framework.permissions import AllowAny
-#from rest_framework.schemas import ManualSchema
-#import coreapi
-#import coreschema
 
 class DefaultLayerViewSet(viewsets.ModelViewSet):
     """ http://localhost:8002/api/v1/<APIKEY>/layers.json """
     queryset = Layer.objects.filter().order_by('id')
     serializer_class = DefaultLayerSerializer
     http_method_names = ['get']
-
-#    schema = ManualSchema(fields=[
-#	    coreapi.Field(
-#		"name",
-#		required=False,
-#		location="query",
-#		schema=coreschema.String()
-#	    ),
-#        ]
-#    )
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -120,12 +108,37 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True, remove_fields=['data', 'response'])
         return Response(serializer.data)
 
+    @action(detail=True, methods=['GET',])
+    @traceback_exception_handler
+    def request_data(self, request, *args, **kwargs):            
+        """
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all&system=das ('all'/'partial'/'single')
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all&system=das&when=True
+
+            if '&when=True' is provided only timestamp details will be returned in the response
+        """
+        #import ipdb; ipdb.set_trace()
+        app_id = kwargs.get('pk')
+        system = request.GET['system']
+        request_type = request.GET.get('request_type', 'ALL')
+        when = request.GET.get('when')
+
+        qs = self.queryset.filter(app_id=app_id, request_type=request_type.upper(), system=system.upper())
+        if not qs.exists():
+            return Response(status.HTTP_400_BAD_REQUEST)
+
+        instance = qs.latest('when')
+
+        remove_fields = ['data', 'response'] if when is not None else ['data']
+        serializer = self.get_serializer(instance, remove_fields=remove_fields) 
+        return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
     @traceback_exception_handler
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log.json
+            https://sqs-dev.dbcachema,wa.gov.au/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=all ('all'/'partial'/'single')
         """
@@ -171,6 +184,43 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, remove_fields=[]) 
         return Response(serializer.data)
 
+
+class PointQueryViewSet(viewsets.ModelViewSet):
+    queryset = Layer.objects.filter().order_by('id')
+    serializer_class = DefaultLayerSerializer
+    http_method_names = ['get'] #, 'post', 'patch', 'delete']
+
+    def list(self, request, *args, **kwargs):            
+        return Response(status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
+    def lonlat_attrs(self, request, *args, **kwargs):            
+        ''' Query layer to determine layer properties give latitude, longitude and layer name
+
+            payload = (('layer_name', 'cddp:dpaw_regions'), ('layer_attrs', 'office, region'), ('lon', 121.465836), ('lat',-30.748890))
+            r=requests.get('http://localhost:8002/api/v1/point_query/lonlat_attrs', params=payload)
+
+            https://sqs-dev.dbca.wa.gov.au/api/v1/point_query/lonlat_attrs?layer_name=cddp:dpaw_regions&layer_attrs=office,region&lon=121.465836&lat=-30.748890
+        '''
+        #import ipdb; ipdb.set_trace()
+        try:
+            layer_name = request.GET['layer_name']
+            layer_attrs = request.GET.get('layer_attrs', [])
+            longitude = request.GET['lon']
+            latitude = request.GET['lat']
+            predicate = request.GET.get('predicate', 'within')
+
+            if isinstance(layer_attrs, str):
+                layer_attrs = [i.strip() for i in layer_attrs.split(',')]
+
+            helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
+            response = helper.spatial_join(predicate=predicate)
+        except Exception as e:
+            logger.error(traceback.print_exc())
+            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
+
+        return JsonResponse(response)
 
 
 #    @action(detail=False, methods=['POST',])

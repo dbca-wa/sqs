@@ -90,6 +90,7 @@ class SetupCddpAssessorAnswerTests(TestCase):
         logger.info("Method: test_other_isnotnull_prefix_in_answer.")
         self.dlq = DisturbanceLayerQuery(prefix.MASTERLIST_QUESTIONS_GBQ, prefix.GEOJSON, prefix.PROPOSAL)
         res = self.dlq.query()
+        #import ipdb; ipdb.set_trace()
         self.assertTrue(res['add_info_assessor'] == prefix.TEST_RESPONSE['add_info_assessor'])
 
     def test_other_isnotnull_no_of_polygons(self):
