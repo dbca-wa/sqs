@@ -143,16 +143,17 @@ class LayerRequestLog(models.Model):
     when = models.DateTimeField(auto_now_add=True, null=False, blank=False)
 
     @classmethod
-    def create_log(self, data):
+    def create_log(self, data, request_type):
         system = data['system']
         app_id = data['proposal']['id']
 
-        log = LayerRequestLog.objects.create(system=system, app_id=app_id, data=data)
+        log = LayerRequestLog.objects.create(system=system, app_id=app_id, request_type=request_type, data=data)
         return log
 
-    def request_details(self, system=None, app_id=None, show_layers=False):
+    def request_details(self, system=None, app_id=None, request_type='ALL', show_layers=False):
         '''
         Get history of layers requested from external systems
+        request_type: FULL | PARTIAL | SINGLE
         '''
 
         if system is None and app_id is None:
@@ -164,7 +165,7 @@ class LayerRequestLog(models.Model):
             return {}
 
         res = {}
-        request_log_qs = LayerRequestLog.objects.filter(system=system, app_id=app_id).order_by('-when')
+        request_log_qs = LayerRequestLog.objects.filter(system=system, app_id=app_id, request_type=request_type).order_by('-when')
         if request_log_qs.count() > 0:
             request_log = request_log_qs[0]
  
@@ -189,7 +190,7 @@ class LayerRequestLog(models.Model):
                     )
                 )
         else:
-           logger.warn(f'No LayerRequestLog instance found for {system}: app_id {app_id}') 
+           logger.warn(f'No LayerRequestLog instance found for {system}: app_id {app_id}, request_type: {request_type}') 
 
         return res
 

@@ -50,6 +50,6 @@ class HelperUtils():
         layer_names = []
         for question_group in masterlist_questions:
             for question in question_group['questions']:
-                if question['layer_name'] not in layer_names:
-                    layer_names.append(question['layer_name'])
+                if question['layer']['layer_name'] not in layer_names:
+                    layer_names.append(question['layer']['layer_name'])
         return layer_names

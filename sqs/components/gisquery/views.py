@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views import View
+from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime, timedelta
 import requests
 import json
@@ -43,6 +44,7 @@ class DisturbanceLayerView(View):
             data = json.loads(request.POST['data'])
 
             proposal = data.get('proposal')
+            current_ts = proposal.get('current_ts')
             geojson = data.get('geojson')
             masterlist_questions = data.get('masterlist_questions')
             request_type = data.get('request_type')
@@ -57,8 +59,16 @@ class DisturbanceLayerView(View):
             if system is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No System Name specified in Request'})
 
+            # check if a previous request exists with a more recent timestamp
+            # datetime.strptime('2023-07-04T10:53:17', '%Y-%m-%dT%H:%M:%S')
+            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='ALL', system='DAS')
+            if qs_cur.exists() and current_ts is not None:
+                ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S')
+                if qs_cur.latest('when').when > ts:
+                    return JsonResponse(qs_cur.latest('when').response)
+
             # log layer requests
-            request_log = LayerRequestLog.create_log(data)
+            request_log = LayerRequestLog.create_log(data, request_type)
 
             dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
             response = dlq.query()
@@ -66,40 +76,12 @@ class DisturbanceLayerView(View):
             response['request_type'] = request_type
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
-            request_log.request_type = request_type
+            #request_log.request_type = request_type
             request_log.response = response
             request_log.save()
+
         except LayerProviderException as e:
             raise LayerProviderException(str(e))
-        except Exception as e:
-            logger.error(traceback.print_exc())
-            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
-
-        #import ipdb; ipdb.set_trace()
-        return JsonResponse(response)
-
-
-class PointQueryLayerView(View):
-    queryset = Layer.objects.filter().order_by('id')
-
-    @csrf_exempt
-    def post(self, request):            
-        ''' Query layer to determine layer properties give latitude, longitude and layer name
-
-            data = {"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}
-            r=requests.post('http://localhost:8002/api/v1/point_query', data={'data': json.dumps(data)})
-        '''
-        try:
-            data = json.loads(request.POST['data'])
-
-            layer_name = data['layer_name']
-            longitude = data['longitude']
-            latitude = data['latitude']
-            layer_attrs = data.get('layer_attrs', [])
-            predicate = data.get('predicate', 'within')
-
-            helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
-            response = helper.spatial_join(predicate=predicate)
         except Exception as e:
             logger.error(traceback.print_exc())
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
@@ -157,6 +139,34 @@ class TestView(View):
 
     def get(self, request):
         return HttpResponse('This is a GET only view')
+
+#class PointQueryLayerView(View):
+#    queryset = Layer.objects.filter().order_by('id')
+#
+#    @csrf_exempt
+#    def post(self, request):            
+#        ''' Query layer to determine layer properties give latitude, longitude and layer name
+#
+#            data = {"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}
+#            r=requests.post('http://localhost:8002/api/v1/point_query', data={'data': json.dumps(data)})
+#        '''
+#        try:
+#            data = json.loads(request.POST['data'])
+#
+#            layer_name = data['layer_name']
+#            longitude = data['longitude']
+#            latitude = data['latitude']
+#            layer_attrs = data.get('layer_attrs', [])
+#            predicate = data.get('predicate', 'within')
+#
+#            helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
+#            response = helper.spatial_join(predicate=predicate)
+#        except Exception as e:
+#            logger.error(traceback.print_exc())
+#            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
+#
+#        return JsonResponse(response)
+#
 
 
 #class CheckLayerView(View):
