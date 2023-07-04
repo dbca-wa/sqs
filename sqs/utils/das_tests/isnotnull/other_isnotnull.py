@@ -54,8 +54,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 54,
         "question": "8.0 Proposal subtitle (Textbox Component)?",
         "answer_mlq": "",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -69,7 +67,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(AssessorPrefix)",
         "no_polygons_assessor": -1,
         "assessor_info": "::region",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -80,8 +90,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 53,
         "question": "7.0 Proposal title (Text Component)?",
         "answer_mlq": "",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -95,7 +103,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "(AssessorPrefix)",
         "no_polygons_assessor": 1,
         "assessor_info": "::region",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   }

@@ -57,8 +57,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 43,
         "question": "1.0 In which something is this proposal located (Select Component)?",
         "answer_mlq": "CITY OF KALGOORLIE-BOULDER",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -72,7 +70,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   }

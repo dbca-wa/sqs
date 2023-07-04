@@ -77,8 +77,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 52,
         "question": "6.0 What is ... Second Nested level radiobutton (Radiobutton Component)?",
         "answer_mlq": "One option",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-12-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -92,7 +90,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   },
@@ -103,8 +113,6 @@ MASTERLIST_QUESTIONS_GBQ = [
         "id": 48,
         "question": "5.0 What is ... First level radiobutton (Radiobutton Component)?",
         "answer_mlq": "Yes",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -118,14 +126,24 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       },
       {
         "id": 49,
         "question": "5.0 What is ... First level radiobutton (Radiobutton Component)?",
         "answer_mlq": "No",
-        "layer_name": "cddp:dpaw_regions",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -139,14 +157,24 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:dpaw_regions",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       },
       {
         "id": 50,
         "question": "5.0 What is ... First level radiobutton (Radiobutton Component)?",
         "answer_mlq": "Possibly",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -160,14 +188,24 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       },
       {
         "id": 51,
         "question": "5.0 What is ... First level radiobutton (Radiobutton Component)?",
         "answer_mlq": "Possibly not",
-        "layer_name": "cddp:local_gov_authority",
-        "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
         "expiry": "2024-01-01",
         "visible_to_proponent": True,
         "buffer": 300,
@@ -181,7 +219,19 @@ MASTERLIST_QUESTIONS_GBQ = [
         "prefix_info": "",
         "no_polygons_assessor": -1,
         "assessor_info": "",
-        "regions": "All"
+        "regions": "All",
+        "layer": {
+          "id": 1,
+          "layer_name": "cddp:local_gov_authority",
+          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:local_gov_authority&maxFeatures=200&outputFormat=application%2Fjson",
+          "available_on_sqs": True,
+          "active_on_sqs": True
+        },
+        "group": {
+          "id": 1,
+          "name": "default",  
+          "can_user_edit": True
+        }
       }
     ]
   }

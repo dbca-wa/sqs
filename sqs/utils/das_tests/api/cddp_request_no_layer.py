@@ -1,4 +1,6 @@
 CDDP_REQUEST_NO_LAYER_JSON = {
+  "system": "DAS",
+  "request_type": "ALL",
   "proposal": {
     "id": 1525,
     "schema": [
@@ -47,8 +49,6 @@ CDDP_REQUEST_NO_LAYER_JSON = {
           "id": 54,
           "question": "8.0 Proposal subtitle (Textbox Component)?",
           "answer_mlq": "",
-          "layer_name": "public:dbca_trails_public",
-          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/public/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=public:dbca_trails_public&maxFeatures=50&outputFormat=application%2Fjson",
           "expiry": "2024-01-01",
           "visible_to_proponent": True,
           "buffer": 300,
@@ -62,7 +62,19 @@ CDDP_REQUEST_NO_LAYER_JSON = {
           "prefix_info": "",
           "no_polygons_assessor": -1,
           "assessor_info": "",
-          "regions": "All"
+          "regions": "All",
+          "layer": {
+            "id": 1,
+            "layer_name": "public:dbca_trails_public",
+            "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/public/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=public:dbca_trails_public&maxFeatures=50&outputFormat=application%2Fjson",
+            "available_on_sqs": True,
+            "active_on_sqs": True
+          },
+          "group": {
+            "id": 1,
+            "name": "default",
+            "can_user_edit": True
+          }
         }
       ]
     },
@@ -73,8 +85,6 @@ CDDP_REQUEST_NO_LAYER_JSON = {
           "id": 53,
           "question": "7.0 Proposal title (Text Component)?",
           "answer_mlq": "",
-          "layer_name": "public:dbca_districts_public",
-          "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/public/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=public:dbca_districts_public&maxFeatures=50&outputFormat=application%2Fjson",
           "expiry": "2024-01-01",
           "visible_to_proponent": True,
           "buffer": 300,
@@ -88,7 +98,20 @@ CDDP_REQUEST_NO_LAYER_JSON = {
           "prefix_info": "",
           "no_polygons_assessor": -1,
           "assessor_info": "",
-          "regions": "All"
+          "regions": "All",
+          "layer": {
+            "id": 1,
+            "layer_name": "public:dbca_districts_public",
+            "layer_url": "https://kmi.dbca.wa.gov.au/geoserver/public/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=public:dbca_districts_public&maxFeatures=50&outputFormat=application%2Fjson",
+            "available_on_sqs": True,
+            "active_on_sqs": True
+          },
+          "group": {
+            "id": 1,
+            "name": "default",
+            "can_user_edit": True
+          }
+
         }
       ]
     }

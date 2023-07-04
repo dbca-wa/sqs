@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser, B
 from rest_framework.pagination import PageNumberPagination
 import traceback
 import json
+from datetime import datetime
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
@@ -39,25 +40,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 from rest_framework.permissions import AllowAny
-#from rest_framework.schemas import ManualSchema
-#import coreapi
-#import coreschema
 
 class DefaultLayerViewSet(viewsets.ModelViewSet):
     """ http://localhost:8002/api/v1/<APIKEY>/layers.json """
     queryset = Layer.objects.filter().order_by('id')
     serializer_class = DefaultLayerSerializer
     http_method_names = ['get']
-
-#    schema = ManualSchema(fields=[
-#	    coreapi.Field(
-#		"name",
-#		required=False,
-#		location="query",
-#		schema=coreschema.String()
-#	    ),
-#        ]
-#    )
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -120,12 +108,36 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True, remove_fields=['data', 'response'])
         return Response(serializer.data)
 
+    @action(detail=True, methods=['GET',])
+    @traceback_exception_handler
+    def request_data(self, request, *args, **kwargs):            
+        """
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all ('all'/'partial'/'single')
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all&when=True
+
+            if '&when=True' is provided only timestamp details will be returned in the response
+        """
+        #import ipdb; ipdb.set_trace()
+        proposal_id = kwargs.get('pk')
+        request_type = request.GET.get('request_type', 'ALL')
+        when = request.GET.get('when')
+
+        qs = self.queryset.filter(app_id=proposal_id, request_type=request_type.upper())
+        if not qs.exists():
+            return Response(status.HTTP_400_BAD_REQUEST)
+
+        instance = qs.latest('when')
+
+        remove_fields = ['data', 'response'] if when is not None else ['data']
+        serializer = self.get_serializer(instance, remove_fields=remove_fields) 
+        return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
     @traceback_exception_handler
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log.json
+            https://sqs-dev.dbcachema,wa.gov.au/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=all ('all'/'partial'/'single')
         """

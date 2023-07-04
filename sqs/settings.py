@@ -209,7 +209,7 @@ LOGGING = {
     'version': 1,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(asctime)s %(module)s %(message)s'
+            'format': '%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s'
         },
     },
     'handlers': {

@@ -92,13 +92,15 @@ class SetupApiTests(TestCase):
             Returns results/answers of intersection of multi-polygon and layers
         '''
         logger.info("Method: test_das_request_url.")
-        response = self.api_client.post(self.spatial_query_url, data=DAS_QUERY_JSON, format='json')
+        response = self.api_client.post(self.spatial_query_url, data={'data': json.dumps(DAS_QUERY_JSON)})
+        #import ipdb; ipdb.set_trace()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_sqs_response_contains_keys(self):
         ''' POST CDDP Request from DAS to SQS - Check SQS Response contains the necessary dict keys. http://localhost:8003/api/das/spatial_query/grouped_by_question.json' '''
         logger.info("Method: test_sqs_response_contains_keys.")
-        response = self.api_client.post(self.spatial_query_url, data=DAS_QUERY_JSON, format='json')
+        #response = self.api_client.post(self.spatial_query_url, data=DAS_QUERY_JSON, format='json')
+        response = self.api_client.post(self.spatial_query_url, data={'data': json.dumps(DAS_QUERY_JSON)})
         all_keys_exist = set(['system', 'data', 'layer_data', 'add_info_assessor']).issubset(response.json().keys())
         self.assertTrue(all_keys_exist)
 
@@ -107,7 +109,8 @@ class SetupApiTests(TestCase):
             Returns results/answers of intersection of multi-polygon and layers
         '''
         logger.info("Method: test_das_request_single_url.")
-        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        #response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        response = self.api_client.post(self.spatial_query_url, data={'data': json.dumps(CDDP_REQUEST_SINGLE_JSON)})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_das_request_single_response_url(self):
@@ -115,18 +118,21 @@ class SetupApiTests(TestCase):
             Returns results/answers of intersection of multi-polygon and layers
         '''
         logger.info("Method: test_das_request_single_response_url.")
-        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        #response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        response = self.api_client.post(self.spatial_query_url, data={'data': json.dumps(CDDP_REQUEST_SINGLE_JSON)})
         #import ipdb; ipdb.set_trace()
-        self.assertEqual(response.data['data'], TEST_RESPONSE['data'])
+        #self.assertEqual(response.data['data'], TEST_RESPONSE['data'])
+        self.assertEqual(response.json()['data'], TEST_RESPONSE['data'])
 
     def test_das_request_single_response_expired_url(self):
         ''' POST CDDP Request from DAS to SQS for a single question (DAS form refresh functionality test) - specifically for expired masterlist question
             Returns results/answers of intersection of multi-polygon and layers
         '''
         logger.info("Method: test_das_request_single_response_expired_url.")
-        response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        #response = self.api_client.post(self.spatial_query_url, data=CDDP_REQUEST_SINGLE_JSON, format='json')
+        response = self.api_client.post(self.spatial_query_url, data={'data': json.dumps(CDDP_REQUEST_SINGLE_JSON)})
         #import ipdb; ipdb.set_trace()
-        self.assertEqual(response.data['data'], TEST_RESPONSE['data'])
+        self.assertEqual(response.json()['data'], TEST_RESPONSE['data'])
 
 
 
