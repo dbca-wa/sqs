@@ -61,7 +61,6 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/layers/1/layer.json 
             https://sqs-dev.dbca.wa.gov.au/api/v1/layers/last/layer.json
         """
-        #import ipdb; ipdb.set_trace()
         pk = kwargs.get('pk')
         if pk == 'last':
             instance = self.queryset.last()
@@ -79,7 +78,6 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         Check if layer is loaded and is available on SQS
         """
-        #import ipdb; ipdb.set_trace()
         layer_name = request.GET.get('layer_name')
 
         if layer_name is None:
@@ -118,10 +116,9 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
 
             if '&when=True' is provided only timestamp details will be returned in the response
         """
-        #import ipdb; ipdb.set_trace()
         app_id = kwargs.get('pk')
         system = request.GET['system']
-        request_type = request.GET.get('request_type', 'ALL')
+        request_type = request.GET.get('request_type', 'FULL')
         when = request.GET.get('when')
 
         qs = self.queryset.filter(app_id=app_id, request_type=request_type.upper(), system=system.upper())
@@ -142,7 +139,6 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=all ('all'/'partial'/'single')
         """
-        #import ipdb; ipdb.set_trace()
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
 
@@ -167,7 +163,6 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all?request_type=all ('all'/'partial'/'single')
         """
-        #import ipdb; ipdb.set_trace()
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
 
@@ -203,7 +198,6 @@ class PointQueryViewSet(viewsets.ModelViewSet):
 
             https://sqs-dev.dbca.wa.gov.au/api/v1/point_query/lonlat_attrs?layer_name=cddp:dpaw_regions&layer_attrs=office,region&lon=121.465836&lat=-30.748890
         '''
-        #import ipdb; ipdb.set_trace()
         try:
             layer_name = request.GET['layer_name']
             layer_attrs = request.GET.get('layer_attrs', [])
@@ -220,7 +214,7 @@ class PointQueryViewSet(viewsets.ModelViewSet):
             logger.error(traceback.print_exc())
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
 
-        return JsonResponse(response)
+        return JsonResponse(status=response.get('status'), data=response)
 
 
 #    @action(detail=False, methods=['POST',])

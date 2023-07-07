@@ -7,6 +7,8 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.cache import cache
+
 from datetime import datetime, timedelta
 import requests
 import json
@@ -23,6 +25,7 @@ from sqs.components.api import models as api_models
 from sqs.components.api import utils as api_utils
 from sqs.decorators import ip_check_required, basic_exception_handler, traceback_exception_handler, apiview_response_exception_handler
 from sqs.exceptions import LayerProviderException
+from sqs.components.gisquery.utils import set_das_cache, clear_cache
 
 import logging
 logger = logging.getLogger(__name__)
@@ -37,14 +40,21 @@ class DisturbanceLayerView(View):
 
         import requests
         from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
-        requests.post('http://localhost:8002/api/v1/das/spatial_query/', json=CDDP_REQUEST_JSON)
-        r=requests.post(url=f'http://localhost:8002/api/v1/das/spatial_query/', json=DAS_QUERY_JSON)
+        r = requests.post(url=f'http://localhost:8002/api/v1/das/spatial_query/', data={data: json.dumps(DAS_QUERY_JSON)})
         """
+        def get_question_ids():
+            try:
+                ids = '_'.join([str(q['id']) for q in masterlist_questions[0]['questions']])
+            except Exception as qe:
+                ids = None
+            return ids
+
+        cache_key = None
         try:
             data = json.loads(request.POST['data'])
 
             proposal = data.get('proposal')
-            current_ts = proposal.get('current_ts')
+            current_ts = proposal.get('current_ts') # only available following subsequent Prefill requests
             geojson = data.get('geojson')
             masterlist_questions = data.get('masterlist_questions')
             request_type = data.get('request_type')
@@ -61,11 +71,14 @@ class DisturbanceLayerView(View):
 
             # check if a previous request exists with a more recent timestamp
             # datetime.strptime('2023-07-04T10:53:17', '%Y-%m-%dT%H:%M:%S')
-            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='ALL', system='DAS')
+            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='FULL', system='DAS')
             if qs_cur.exists() and current_ts is not None:
                 ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S')
                 if qs_cur.latest('when').when > ts:
                     return JsonResponse(qs_cur.latest('when').response)
+ 
+            # checking request cache to prevent repeated requests, while previous request is still running
+            cache_key = set_das_cache(data)
 
             # log layer requests
             request_log = LayerRequestLog.create_log(data, request_type)
@@ -76,16 +89,18 @@ class DisturbanceLayerView(View):
             response['request_type'] = request_type
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
-            #request_log.request_type = request_type
             request_log.response = response
             request_log.save()
 
         except LayerProviderException as e:
+            clear_cache(cache_key)
             raise LayerProviderException(str(e))
         except Exception as e:
+            clear_cache(cache_key)
             logger.error(traceback.print_exc())
-            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
+            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': str(e)})
 
+        cache.delete(cache_key)
         return JsonResponse(response)
 
 
@@ -100,7 +115,6 @@ class DefaultLayerProviderView(View):
                 2. creates/updates layer from Geoserver
         '''
         try:
-            #import ipdb; ipdb.set_trace()
             layer_details = json.loads(request.POST['layer_details'])
 
             layer_name = layer_details.get('layer_name')

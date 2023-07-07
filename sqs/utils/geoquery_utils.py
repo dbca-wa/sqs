@@ -2,6 +2,7 @@ from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiPolygon
 from django.conf import settings
 from django.db import transaction
 from django.core.cache import cache
+from rest_framework import status
 
 import pandas as pd
 import geopandas as gpd
@@ -538,26 +539,32 @@ class PointQueryHelper():
         overlay_res = gpd.sjoin(point_gdf, layer_gdf, predicate=predicate)
 
         attrs_exist = all(item in overlay_res.columns for item in self.layer_attrs)
-        errors = None
-        if len(self.layer_attrs)==0 or overlay_res.empty:
-            # no attrs specified - so return them all
-            layer_attrs = overlay_res.drop('geometry', axis=1).columns
-        elif len(self.layer_attrs)>0 and attrs_exist:
-            # return only requested attrs
-            layer_attrs = self.layer_attrs 
-        else: #elif not attrs_exist:
-            # one or more attr requested not found in layer - return all attrs and error message
+
+        if attrs_exist:
+            errors = None
+            if len(self.layer_attrs)==0 or overlay_res.empty:
+                # no attrs specified - so return them all
+                layer_attrs = overlay_res.drop('geometry', axis=1).columns
+            elif len(self.layer_attrs)>0 and attrs_exist:
+                # return only requested attrs
+                layer_attrs = self.layer_attrs 
+            else: #elif not attrs_exist:
+                # one or more attr requested not found in layer - return all attrs and error message
+                layer_attrs = overlay_res.drop('geometry', axis=1).columns
+                errors = f'Attribute(s) not available: {self.layer_attrs}. Attributes available in layer: {list(layer_attrs.array)}'
+
+            #layer_attrs = self.layer_attrs if len(self.layer_attrs)>0 and attrs_exist else overlay_res.drop('geometry', axis=1).columns
+            overlay_res = overlay_res.iloc[0] if not overlay_res.empty else overlay_res # convert row to pandas Series (removes index)
+
+            try: 
+                res = dict(status=status.HTTP_200_OK, name=self.layer_name, errors=errors, res=overlay_res[layer_attrs].to_dict() if not overlay_res.empty else None)
+            except Exception as e:
+                logger.error(e)
+                res = dict(status=status.HTTP_400_BAD_REQUEST, name=self.layer_name, error=str(e), res=overlay_res.to_dict() if not overlay_res.empty else None)
+        else:
             layer_attrs = overlay_res.drop('geometry', axis=1).columns
             errors = f'Attribute(s) not available: {self.layer_attrs}. Attributes available in layer: {list(layer_attrs.array)}'
-
-        #layer_attrs = self.layer_attrs if len(self.layer_attrs)>0 and attrs_exist else overlay_res.drop('geometry', axis=1).columns
-        overlay_res = overlay_res.iloc[0] if not overlay_res.empty else overlay_res # convert row to pandas Series (removes index)
-
-        try: 
-            res = dict(name=self.layer_name, errors=errors, res=overlay_res[layer_attrs].to_dict() if not overlay_res.empty else None)
-        except Exception as e:
-            logger.error(e)
-            res = dict(name=self.layer_name, error=str(e), res=overlay_res.to_dict() if not overlay_res.empty else None)
+            res = dict(status=status.HTTP_400_BAD_REQUEST, name=self.layer_name, errors=errors, res=None)
 
         return res
 
