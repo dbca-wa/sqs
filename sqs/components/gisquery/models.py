@@ -126,11 +126,11 @@ class Layer(RevisionedMixin):
         return f'{self.name}, version {self.version}'
 
 class LayerRequestLog(models.Model):
-    ALL = 'ALL'
+    FULL = 'FULL'
     PARTIAL = 'PARTIAL'
     SINGLE = 'SINGLE'
     REQUEST_TYPE_CHOICES = (
-        (ALL, 'ALL'),
+        (FULL, 'FULL'),
         (PARTIAL, 'PARTIAL'),
         (SINGLE, 'SINGLE'),
     )
@@ -150,7 +150,7 @@ class LayerRequestLog(models.Model):
         log = LayerRequestLog.objects.create(system=system, app_id=app_id, request_type=request_type, data=data)
         return log
 
-    def request_details(self, system=None, app_id=None, request_type='ALL', show_layers=False):
+    def request_details(self, system=None, app_id=None, request_type='FULL', show_layers=False):
         '''
         Get history of layers requested from external systems
         request_type: FULL | PARTIAL | SINGLE

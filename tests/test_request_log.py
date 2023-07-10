@@ -49,7 +49,7 @@ class SetupRequestLogTests(TestCase):
         filename='sqs/utils/das_tests/layers/cddp_dpaw_regions.json'
         layer_info, layer_gdf = DbLayerProvider(layer_name=name, url=url).get_layer_from_file(filename)
         
-        self.request_log = LayerRequestLog.create_log(DAS_QUERY_JSON)
+        self.request_log = LayerRequestLog.create_log(DAS_QUERY_JSON, 'FULL')
         self.masterlist_questions = DAS_QUERY_JSON['masterlist_questions']
         self.geojson = DAS_QUERY_JSON['geojson']
         self.proposal = DAS_QUERY_JSON['proposal']
@@ -89,6 +89,6 @@ class SetupRequestLogTests(TestCase):
         history = self.request_log.request_details('DAS', app_id=1388)
 
         #import ipdb; ipdb.set_trace()
-        self.assertTrue(history['num_layers_in_request'] == 2)
+        self.assertTrue(history['num_layers_in_request'] == 1)
 
 

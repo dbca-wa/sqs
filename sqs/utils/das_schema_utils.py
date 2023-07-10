@@ -60,10 +60,10 @@ class DisturbancePrefillData(object):
 
         item_data = {}
 
-        if 'name' in item:
+        if isinstance(item, dict) and 'name' in item:
             extended_item_name = item['name']
         else:
-            raise Exception('Missing name in item %s' % item['label'])
+            raise Exception(f'Missing name in item {item["label"]}. Possibly Question/Section not provided!')
 
         if 'children' not in item:
             if item['type'] =='checkbox':
