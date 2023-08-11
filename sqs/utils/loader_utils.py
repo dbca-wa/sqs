@@ -38,9 +38,8 @@ class LayerLoader():
         
     def retrieve_layer(self):
         try:
-            if 'public' not in self.name:
-                res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None)
-            else:
+            res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None)
+            if res.status_code != HTTP_200_OK:
                 res = requests.get('{}'.format(self.url), verify=None)
 
             res.raise_for_status()
