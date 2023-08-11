@@ -96,7 +96,8 @@ class DefaultOperator():
             else:
                 if operator == 'IsNotNull':
                     # list is not empty
-                    self.operator_result = ','.join(overlay_result)
+                    #self.operator_result = ','.join(overlay_result)
+                    self.operator_result = [x for x in overlay_result if str(x).strip() != '']
 
                 elif operator == GREATER_THAN:
                     self.operator_result = [str(x) for x in overlay_result if x > float(value)]

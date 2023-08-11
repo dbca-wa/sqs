@@ -53,7 +53,7 @@ class DisturbanceLayerQueryHelper():
 
     def add_buffer(self, cddp_question):
         '''
-        Converts Polar Projection from EPSG:4326 (in deg) to Cartesian Projection (in meters),
+        Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
         add buffer (in meters) to the new projection, then reverts the buffered polygon to 
         the original projection
 
