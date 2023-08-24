@@ -92,7 +92,8 @@ class DisturbanceLayerQueryHelper():
         if how=='Overlapping':
             return 'intersection'
         elif how=='Outside':
-            return 'difference'
+            #return 'difference'
+            return 'symmetric_difference'
         else:
             logger.error(f'Error: Unknown "how" operator: {how}')
 
@@ -117,7 +118,7 @@ class DisturbanceLayerQueryHelper():
     def get_grouped_questions(self, question):
         """
         Return the entire question group. 
-        That is, find the layer_name to which question belong then return all questions in that layer group.
+        For example, given a radiobutton or checkbox question, return the all question/answer combinations for that question
         """
         try:
             for question_group in self.masterlist_questions:
@@ -168,31 +169,31 @@ class DisturbanceLayerQueryHelper():
                 how = self.overlay_how(how) # ['interesection', 'difference']
 
                 mpoly = self.add_buffer(cddp_question)
-                #mpoly = self.geojson
-                overlay_gdf = layer_gdf.overlay(mpoly, how=how)
-                try:
-                    res = overlay_gdf[column_name].tolist()
-                except KeyError as e:
+                if how == 'intersection':
+                    overlay_gdf = layer_gdf.overlay(mpoly, how=how)
+                else:
+                    # the in-built geopandas 'difference' and 'symmetric_difference' does not work as expected,
+                    # when polygon crosses multiple layer boundaries. Therefore improvising with the below 'NOT (~)' operator.
+                    # 'overlay_gdf' GeoDataFrame will contain all the rows from layer_gdf that DO NOT intersect with the elements of mpoly.
+                    overlay_gdf = layer_gdf.loc[~layer_gdf.intersects(mpoly.unary_union)].reset_index(drop=True)
+
+                if column_name not in overlay_gdf.columns:
                     _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
                     error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
                     logger.error(error_msg)
 
                 # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                 operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
-                operator_result = operator.comparison_result()
+                operator_result = operator.operator_result()
 
                 res = dict(
                         question=cddp_question['question'],
                         answer=cddp_question['answer_mlq'],
-                        #expired=False if (expiry and expiry > today.date()) or not expiry else True,
                         visible_to_proponent=cddp_question['visible_to_proponent'],
                         proponent_answer=operator.proponent_answer(),
                         assessor_answer=operator.assessor_answer(),
                         layer_details = dict(**layer_info,
-                            #question=cddp_question['question'],
-                            #answer=cddp_question['answer_mlq'],
                             sqs_timestamp=today.strftime(DATETIME_FMT),
-                            #attrs = self.get_attributes(overlay_gdf),
                             error_msg = error_msg,
                         ),
                         operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
@@ -204,7 +205,9 @@ class DisturbanceLayerQueryHelper():
         return response
 
     def get_processed_question(self, question, widget_type):
-        ''' Gets or Sets processed (spatial_join executed) question from cache '''
+        ''' Gets or Sets processed (spatial_join executed) question from cache 
+            NOTE: processed questions caching not implemented
+        '''
         processed_questions = []
         try:
             processed_questions = self.spatial_join_gbq(question, widget_type)
@@ -222,6 +225,7 @@ class DisturbanceLayerQueryHelper():
             If item_options==question['answer'] && len(question['operator_response'])>0, then return rb as checked
         '''
         response = {}
+        question = {}
         try:
             schema_question  = item['label']
             schema_section = item['name']
@@ -232,32 +236,19 @@ class DisturbanceLayerQueryHelper():
             if len(processed_questions)==0:
                 return {}
 
-            res=[]
             assessor_info=[]
             layer_details=[]
-            question = {}
-            details = {}
-            sqs_data = {}
             for label in item_option_labels:
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
                     if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-                        res.append(label) # result is in an array list
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
-                        layer_details.append(dict(name=schema_section, label=label, details=details, question=raw_data))
-
-#                        if question['assessor_answer'] not in assessor_info:
-#                            raw_data = question
-#                            details = raw_data.pop('layer_details', None)
-#                            #assessor_info.append(question['assessor_answer'])
-#                            layer_details.append(dict(name=schema_section, label=label, details=details, question=raw_data))
 
                         response =  dict(
-                            result=res[0] if len(res)>0 else None,
+                            result=label,
                             assessor_info=assessor_info,
-                            #layer_details=[dict(name=schema_section, label=label, details=details, question=raw_data)],
-                            layer_details=layer_details,
+                            layer_details=[dict(name=schema_section, label=label, details=details, question=question)],
                         )
                         return response
 
@@ -274,6 +265,7 @@ class DisturbanceLayerQueryHelper():
             If item_options==question['answer'] && len(question['operator_response'])>0, then return cb as checked
         '''
         response = {}
+        question = {}
         try:
             schema_question = item['label']
             item_options    = item['children']
@@ -286,7 +278,6 @@ class DisturbanceLayerQueryHelper():
             result=[]
             assessor_info=[]
             layer_details=[]
-            question = {}
             for _d in item_options_dict:
                 name = _d['name']
                 label = _d['label']
@@ -296,13 +287,6 @@ class DisturbanceLayerQueryHelper():
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
                         layer_details.append(dict(name=name, label=label, details=details, question=raw_data))
-#                        response.update(
-#                            dict(
-#                                result=label,
-#                                assessor_info=assessor_info,
-#                                layer_details=layer_details,
-#                            )
-#                        )
 
             response =  dict(
                 result=result,
@@ -322,33 +306,34 @@ class DisturbanceLayerQueryHelper():
             If len(question['operator_response'])>0, then return select item as checked
         '''
         response = {}
+        question = {}
         try:
             schema_question  = item['label']
             schema_section = item['name']
             item_options   = item['options']
 
-            item_options_dict = [dict(label=i['label']) for i in item_options]
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions)==0:
+            if len(processed_questions) != 1:
+                # for multi-select questions, there must be only one question
+                logger.error(f'SELECT: For select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
                 return {}
-
-            result = []
-            layer_details=[]
             question = processed_questions[0]
-            details = {}
-            for _d in item_options_dict:
-                label = _d['label']
 
-                if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+            item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
+            operator_response = question['proponent_answer'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
-                    details = question.pop('layer_details', None)
-                    response =  dict(
-                        result=label,
-                        assessor_info=[question['assessor_answer']],
-                        #layer_details=[dict(name=schema_section, label=None, details=details, question=raw_data)],
-                        layer_details=[dict(name=schema_section, label=label, details=details, question=question)],
-                    )
-                    return response
+            # return only those labels that are in the available choices to the proponent
+            # case-insensitive intersection. returns labels found in both lists
+            labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+            labels_found.sort()
+
+            raw_data = question
+            details = raw_data.pop('layer_details', None)
+            response =  dict(
+                result=labels_found[0] if len(labels_found)>0 else None, # return the first one found
+                assessor_info=[question['assessor_answer']],
+                layer_details=[dict(name=schema_section, label='N/A', details=details, question=question)]
+            )
 
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -361,42 +346,34 @@ class DisturbanceLayerQueryHelper():
 
             If len(question['operator_response'])>0, then return multi-selects item as checked
         '''
-        def get_value(label):
-            ''' get the label value from list of dicts eg. [{'label': 'CITY OF JOONDALUP', 'value': 'CITY-OF-JOONDALUP'}] '''
-            for item in item_options:
-                if item['label'] == label:
-                    return item['value']
-            return None
-
         response = {}
+        question = {}
         try:
             schema_question  = item['label']
             schema_section = item['name']
             item_options   = item['options']
 
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions)==0:
+            if len(processed_questions) != 1:
+                # for multi-select questions, there must be only one question
+                logger.error(f'MULTI-SELECT: For multi-select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
                 return {}
+            question = processed_questions[0]
 
-            result=[]
-            layer_details=[]
-            question = [] #processed_questions[0]
-            item_options_dict = [dict(label=i['label']) for i in item_options]
-            for _d in item_options_dict:
-                label = _d['label']
+            item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
+            operator_response = question['proponent_answer'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
-                for question in processed_questions:
-                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-                        result.append(get_value(label)) # result is in an array list
-                        raw_data = question
-                        details = raw_data.pop('layer_details', None)
-                        layer_details.append(dict(name=schema_section, label=get_value(label), details=details, question=raw_data))
+            # return only those labels that are in the available choices to the proponent
+            # case-insensitive intersection. returns labels found in both lists
+            labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+            labels_found.sort()
 
+            raw_data = question
+            details = raw_data.pop('layer_details', None)
             response =  dict(
-                result=result,
+                result=labels_found,
                 assessor_info=[question['assessor_answer']],
-                #layer_details=[dict(name=schema_section, label=None, details=details, question=question)],
-                layer_details=layer_details,
+                layer_details=[dict(name=schema_section, label='N/A', details=details, question=question)]
             )
 
         except Exception as e:
@@ -414,6 +391,7 @@ class DisturbanceLayerQueryHelper():
             Returns --> str
         '''
         response = {}
+        question = {}
         try:
             schema_question = item['label']
             schema_section  = item['name']
@@ -424,16 +402,11 @@ class DisturbanceLayerQueryHelper():
                 return {}
 
             layer_details=[]
-            question = {}
             if len(processed_questions)>0:
                 question = processed_questions[0] 
                 details = question.pop('layer_details', None)
                 label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
-#                    assessor_info = dict(
-#                        proponent_answer=question['proponent_answer'],
-#                        assessor_answer=question['assessor_answer'],
-#                    ),
                     assessor_info = question['assessor_answer'],
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )

@@ -47,7 +47,11 @@ CHECK_IP = env('CHECK_IP', True)
 CRS = env('CRS', 'epsg:4326')
 CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:4462')
 
+LANGUAGE_CODE = 'en-AU'
 TIME_ZONE = 'Australia/Perth'
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
 
 
 if env('CONSOLE_EMAIL_BACKEND', False):
