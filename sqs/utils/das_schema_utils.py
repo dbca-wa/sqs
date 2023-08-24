@@ -69,7 +69,7 @@ class DisturbancePrefillData(object):
             if item['type'] =='checkbox':
                 if sqs_value:
                     for val in sqs_value:
-                        if val==item['label']:
+                        if val.casefold()==item['label'].casefold():
                             item_data[item['name']]='on'
 
             elif item['type'] == 'file':
@@ -82,10 +82,10 @@ class DisturbancePrefillData(object):
                         # don't overwrite if propsal['data'] already has a value set
                         sqs_dict = self.layer_query_helper.find_multiselect(item)
                         sqs_values = sqs_dict.get('result')
+                        self._update_layer_info(sqs_dict)
                         
                         if sqs_values:
                             self._update_assessor_info(item, sqs_dict)
-                            self._update_layer_info(sqs_dict)
 
                             # Next Line: resetting to None before refilling - TODO perhaps run for all within __init__()
                             item_data[item['name']]=[]
@@ -93,9 +93,8 @@ class DisturbancePrefillData(object):
                             for val in sqs_values:
                                 if item['options']:
                                     for op in item['options']:
-                                        if val==op['value']:
+                                        if val.casefold()==op['label'].casefold():
                                             item_data[item['name']].append(op['value'])
-                                            #sqs_assessor_value='test'
 
                     elif item['type'] in ['radiobuttons', 'select']:
                         #Get value from SQS
@@ -113,7 +112,7 @@ class DisturbancePrefillData(object):
                             if item['options']:
                                 for op in item['options']:
                                     #if sqs_value==op['value']:
-                                    if sqs_value==op['label']:
+                                    if sqs_value.casefold()==op['label'].casefold():
                                         item_data[item['name']]=op['value']
                                         break
 
@@ -191,13 +190,16 @@ class DisturbancePrefillData(object):
         layer_info = []
 
         try:
+            sqs_values = sqs_dict.get('result')
             layer_details = sqs_dict.get('layer_details', [])
             for ld in layer_details:
                 self.layer_data.append(
                     dict(
                         name=ld['name'] if 'name' in ld else None,
-                        response=ld['label'] if 'label' in ld else None,
+                        #response=ld['label'] if 'label' in ld else None,
+                        response=ld['question']['operator_response'],
                         **ld['details'],
+                        #msg=ld['details'] if sqs_values else ld['details']['error_msg'],
                         sqs_data=ld['question'],
                     )
                 )

@@ -49,6 +49,14 @@ class DisturbanceLayerView(View):
                 ids = None
             return ids
 
+        def normalise_datetime(when):
+            ''' drop the decimal seconds, and set timezone UTC 
+                when --> type is datetime.datetime
+                         returns datetime.datetime
+            '''
+            return datetime.strptime(datetime.strftime(when, '%Y-%m-%dT%H:%M:%S'), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+
+
         cache_key = None
         try:
             data = json.loads(request.POST['data'])
@@ -73,9 +81,15 @@ class DisturbanceLayerView(View):
             # datetime.strptime('2023-07-04T10:53:17', '%Y-%m-%dT%H:%M:%S')
             qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='FULL', system='DAS')
             if qs_cur.exists() and current_ts is not None:
-                ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S')
-                if qs_cur.latest('when').when > ts:
-                    return JsonResponse(qs_cur.latest('when').response)
+                ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
+                last_query_date = normalise_datetime(qs_cur.latest('when').when)
+                if last_query_date > ts:
+                    logger.info(f'Previously executed query exists from {last_query_date}. Last proposal prefill time {ts}. Updating from cached results ...')
+                    try: 
+                        return JsonResponse(qs_cur.latest('when').response)
+                    except:
+                        logger.info(f'Errors getting cached results. Ignoring cache, running query ...')
+                        pass
  
             # checking request cache to prevent repeated requests, while previous request is still running
             cache_key = set_das_cache(data)
