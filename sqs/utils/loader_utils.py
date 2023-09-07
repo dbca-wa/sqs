@@ -157,7 +157,7 @@ class DbLayerProvider():
         self.layer_name = layer_name
         self.url = url
 
-    def get_layer(self):
+    def get_layer(self, from_geoserver=True):
         '''
         Returns: layer_info, layer_gdf
         '''
@@ -171,10 +171,10 @@ class DbLayerProvider():
                     # try getting from DB
                     layer_info, layer_gdf = self.get_from_db()
                     logger.info(f'Getting layer from DB {self.layer_name} from:\n{self.url}')
-                else:
-                    # Get from Geoserver, store in DB and set in cache
-                    layer_info, layer_gdf = self.get_layer_from_geoserver()
-                    logger.info(f'Getting layer from GeoServer {self.layer_name} from:\n{self.url}')
+                elif from_geoserver:
+                        # Get from Geoserver, store in DB and set in cache
+                        layer_info, layer_gdf = self.get_layer_from_geoserver()
+                        logger.info(f'Getting layer from GeoServer {self.layer_name} from:\n{self.url}')
 
         except Exception as e:
             err_msg = f'Error getting layer {self.layer_name} from:\n{self.url}\n{str(e)}'

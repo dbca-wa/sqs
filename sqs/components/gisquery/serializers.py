@@ -25,6 +25,15 @@ class DefaultLayerSerializer(serializers.ModelSerializer):
         )
 
 
+class GeoJSONLayerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Layer
+        geo_field = 'geojson'
+        fields=(
+            'geojson',
+        )
+
+
 class LayerRequestLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = LayerRequestLog
