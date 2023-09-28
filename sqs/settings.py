@@ -29,6 +29,8 @@ LEDGER_PASS = env('LEDGER_PASS')
 #SHOW_DEBUG_TOOLBAR = env('SHOW_DEBUG_TOOLBAR', False)
 BUILD_TAG = env('BUILD_TAG', hashlib.md5(os.urandom(32)).hexdigest())  # URL of the Dev app.js served by webpack & express
 
+REQUEST_TIMEOUT = env('REQUEST_TIMEOUT', 5) # 5 secs
+
 CACHE_TIMEOUT_1_MINUTE = 60
 CACHE_TIMEOUT_5_MINUTES = 60 * 5
 CACHE_TIMEOUT_2_HOURS = 60 * 60 * 2

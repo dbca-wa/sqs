@@ -140,68 +140,77 @@ class DisturbanceLayerQueryHelper():
               subsequent potential question/answer queries.
         '''
 
-        error_msg = ''
-        today = datetime.now(pytz.timezone(settings.TIME_ZONE))
-        response = []
+        try:
+            error_msg = ''
+            today = datetime.now(pytz.timezone(settings.TIME_ZONE))
+            response = []
 
-        grouped_questions = self.get_grouped_questions(question)
-        if len(grouped_questions)==0:
-            return response
+            grouped_questions = self.get_grouped_questions(question)
+            if len(grouped_questions)==0:
+                return response
 
-        for cddp_question in grouped_questions['questions']:
+            for cddp_question in grouped_questions['questions']:
 
-            question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date()
-            if question_expiry > today.date():
-  
-                layer_name = cddp_question['layer']['layer_name']
-                layer_url = cddp_question['layer']['layer_url']
-                layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
+                question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
+                if question_expiry is None or question_expiry >= today.date():
+      
+                    layer_name = cddp_question['layer']['layer_name']
+                    layer_url = cddp_question['layer']['layer_url']
+                    layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
 
-                column_name = cddp_question['column_name']
-                operator = cddp_question['operator']
-                how = cddp_question['how']
-                expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
+                    column_name = cddp_question['column_name']
+                    operator = cddp_question['operator']
+                    how = cddp_question['how']
 
-    #            if cddp_question['question']=='1.0 Proposal title':
-    #                #import ipdb; ipdb.set_trace()
-    #                pass
+        #            if cddp_question['question']=='1.0 Proposal title':
+        #                #import ipdb; ipdb.set_trace()
+        #                pass
 
-                how = self.overlay_how(how) # ['interesection', 'difference']
+                    how = self.overlay_how(how) # ['interesection', 'difference']
 
-                mpoly = self.add_buffer(cddp_question)
-                if how == 'intersection':
-                    overlay_gdf = layer_gdf.overlay(mpoly, how=how)
+                    mpoly = self.add_buffer(cddp_question)
+                    if how == 'intersection':
+                        overlay_gdf = layer_gdf.overlay(mpoly, how=how)
+                    else:
+                        # the in-built geopandas 'difference' and 'symmetric_difference' does not work as expected,
+                        # when polygon crosses multiple layer boundaries. Therefore improvising with the below 'NOT (~)' operator.
+                        # 'overlay_gdf' GeoDataFrame will contain all the rows from layer_gdf that DO NOT intersect with the elements of mpoly.
+                        overlay_gdf = layer_gdf.loc[~layer_gdf.intersects(mpoly.unary_union)].reset_index(drop=True)
+
+                    if column_name not in overlay_gdf.columns:
+                        _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
+                        error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
+                        logger.error(error_msg)
+
+                    # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
+                    operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
+                    operator_result = operator.operator_result()
+
+                    res = dict(
+                            question=cddp_question['question'],
+                            answer=cddp_question['answer_mlq'],
+                            visible_to_proponent=cddp_question['visible_to_proponent'],
+                            proponent_answer=operator.proponent_answer(),
+                            assessor_answer=operator.assessor_answer(),
+                            layer_details = dict(**layer_info,
+                                sqs_timestamp=today.strftime(DATETIME_FMT),
+                                error_msg = error_msg,
+                            ),
+                            operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
+                        )
+                    response.append(res)
                 else:
-                    # the in-built geopandas 'difference' and 'symmetric_difference' does not work as expected,
-                    # when polygon crosses multiple layer boundaries. Therefore improvising with the below 'NOT (~)' operator.
-                    # 'overlay_gdf' GeoDataFrame will contain all the rows from layer_gdf that DO NOT intersect with the elements of mpoly.
-                    overlay_gdf = layer_gdf.loc[~layer_gdf.intersects(mpoly.unary_union)].reset_index(drop=True)
+                    logger.warn(f'Expired {question_expiry}: Ignoring question {cddp_question}')
 
-                if column_name not in overlay_gdf.columns:
-                    _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
-                    error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
-                    logger.error(error_msg)
+        except Exception as e: 
+            logger.error(e)
+            #res = dict(
+            #    layer_details = dict(
+            #        error_msg = str(e)
+            #    ),
+            #)
 
-                # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-                operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
-                operator_result = operator.operator_result()
-
-                res = dict(
-                        question=cddp_question['question'],
-                        answer=cddp_question['answer_mlq'],
-                        visible_to_proponent=cddp_question['visible_to_proponent'],
-                        proponent_answer=operator.proponent_answer(),
-                        assessor_answer=operator.assessor_answer(),
-                        layer_details = dict(**layer_info,
-                            sqs_timestamp=today.strftime(DATETIME_FMT),
-                            error_msg = error_msg,
-                        ),
-                        operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
-                    )
-                response.append(res)
-            else:
-                logger.warn(f'Expired {question_expiry}: Ignoring question {cddp_question}')
-
+        
         return response
 
     def get_processed_question(self, question, widget_type):
