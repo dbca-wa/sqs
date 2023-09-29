@@ -125,6 +125,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     def get_attributes(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/get_attributes/?layer_name=informal_reserves
             http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&attr_name=LGA_TYPE
+            http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&attrs_only=true
             http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&use_cache=False
 
             requests.get('http://localhost:8002/api/v1/layers/get_attributes', params={'layer_name':'informal_reserves'})
@@ -135,6 +136,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         Check if layer is loaded and is available on SQS
         """
         layer_name = request.GET.get('layer_name')
+        attrs_only = request.GET.get('attrs_only')
         attr_name = request.GET.get('attr_name')
         use_cache = request.GET.get('use_cache')
 
@@ -158,6 +160,13 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
                 )
 
         filtered_cols = layer_gdf.loc[:, layer_gdf.columns != 'geometry'].columns # exclude column 'goeometry'
+        if attrs_only:
+            return  Response(dict(
+                    layer_name=layer_name,
+                    attributes=filtered_cols
+                )
+            )
+           
         if attr_name and attr_name.lower() in filtered_cols.str.lower():
             filtered_cols = [attr_name.strip()]
         elif attr_name:
