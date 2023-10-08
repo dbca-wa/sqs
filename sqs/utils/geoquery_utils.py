@@ -186,6 +186,7 @@ class DisturbanceLayerQueryHelper():
                     operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
                     operator_result = operator.operator_result()
 
+                    #import ipdb; ipdb.set_trace()
                     res = dict(
                             question=cddp_question['question'],
                             answer=cddp_question['answer_mlq'],
@@ -250,6 +251,7 @@ class DisturbanceLayerQueryHelper():
             for label in item_option_labels:
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
+                    #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
                     if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
@@ -291,6 +293,7 @@ class DisturbanceLayerQueryHelper():
                 name = _d['name']
                 label = _d['label']
                 for question in processed_questions:
+                    #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
                     if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         result.append(label) # result is in an array list 
                         raw_data = question
@@ -299,6 +302,7 @@ class DisturbanceLayerQueryHelper():
 
             response =  dict(
                 result=result,
+                #result=list(set(result)),
                 assessor_info=assessor_info,
                 layer_details=layer_details,
             )
@@ -377,10 +381,11 @@ class DisturbanceLayerQueryHelper():
             labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
             labels_found.sort()
 
+            #import ipdb; ipdb.set_trace()
             raw_data = question
             details = raw_data.pop('layer_details', None)
             response =  dict(
-                result=labels_found,
+                result=list(set(labels_found)),
                 assessor_info=[question['assessor_answer']],
                 layer_details=[dict(name=schema_section, label='N/A', details=details, question=question)]
             )
@@ -416,7 +421,8 @@ class DisturbanceLayerQueryHelper():
                 details = question.pop('layer_details', None)
                 label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
-                    assessor_info = question['assessor_answer'],
+                    #assessor_info = question['assessor_answer'],
+                    assessor_info = list(set(question['assessor_answer'])),
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 

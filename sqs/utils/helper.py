@@ -70,7 +70,8 @@ class DefaultOperator():
             _list = HelperUtils.pop_list(self.overlay_gdf.columns.to_list())
             logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
 
-        return overlay_result
+        return overlay_result # return unique values
+        #return list(set(overlay_result)) # return unique values
 
     def _comparison_result(self):
         '''
@@ -131,8 +132,10 @@ class DefaultOperator():
         summary of query results - filters
         '''
         column_name   = self.cddp_question.get('column_name')
-        operator_result = self._get_overlay_result(column_name)
-        return operator_result
+        _operator_result = self._get_overlay_result(column_name)
+        #import ipdb; ipdb.set_trace()
+        #return _operator_result
+        return list(set(_operator_result))
 
     def proponent_answer(self):
         """
@@ -152,15 +155,19 @@ class DefaultOperator():
         if proponent_answer:
             if '::' in proponent_answer:
                 column_name = proponent_answer.split('::')[1].strip()
-                proponent_text = self._get_overlay_result(column_name)
+                proponent_text = list(set(self._get_overlay_result(column_name)))
             else:
                 proponent_text = proponent_answer
 
+        #import ipdb; ipdb.set_trace()
         if no_polygons_proponent >= 0:
             # extract the result from the first 'no_polygons_proponent' polygons only
             proponent_text = proponent_text[:no_polygons_proponent]
 
         if self.widget_type in TEXT_WIDGETS:
+        #if True:
+            # Return text string for TEXT WIDGETS
+
             # perform additional processing and convert list to str (otherwise return list)
             if proponent_text and isinstance(proponent_text, list) and isinstance(proponent_text[0], str):
                 proponent_text = ', '.join(proponent_text)
@@ -169,7 +176,10 @@ class DefaultOperator():
                 # text to be inserted always at beginning of an answer text
                 proponent_text = prefix_answer + ' ' + proponent_text if proponent_text else prefix_answer
 
+        #import ipdb; ipdb.set_trace()
         return proponent_text
+        #return proponent_text if isinstance(proponent_text, list) else [proponent_text]
+        #return list(set(proponent_text))
         
     def assessor_answer(self):
         """
@@ -185,7 +195,7 @@ class DefaultOperator():
             # assessor must see this response instead of overlay response answer
             if '::' in assessor_info:
                 column_name = assessor_info.split('::')[1].strip()
-                assessor_text = self._get_overlay_result(column_name)
+                assessor_text = list(set(self._get_overlay_result(column_name)))
             else:
                 assessor_text = assessor_info
 
@@ -201,6 +211,7 @@ class DefaultOperator():
             assessor_text = prefix_info + ' ' + assessor_text if assessor_text else prefix_info
 
         return assessor_text
+        #return list(set(assessor_text))
 
  
 

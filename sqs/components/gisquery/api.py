@@ -51,16 +51,20 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
     def csrf_token(self, request, *args, **kwargs):            
-        """ https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/csrf_token.json
+        """ https://localhost:8002/api/v1/layers/1/csrf_token.json
         """
         return Response({"test":"get_test"})
+
+    @traceback_exception_handler
+    def list(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/layers/
+        """
+        return Response(self.queryset.values('name', 'url', 'active'))
 
     @action(detail=True, methods=['GET',])
     @traceback_exception_handler
     def layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/1/layer.json 
-            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/last/layer.json
 
             List Layers:
             http://localhost:8002/api/v1/layers/
@@ -95,7 +99,8 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         if layer_gdf is None:
             return  JsonResponse(
                 status=status.HTTP_400_BAD_REQUEST, 
-                data={'errors': f'Layer Name {layer_name} Not Found. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
+                #data={'errors': f'Layer Name {layer_name} Not Found. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
+                data={'errors': f'Layer Name {layer_name} Not Found'}
             )
 
         return Response(json.loads(layer_gdf.to_json()))
@@ -156,9 +161,11 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
             if layer_gdf is None:
                 return  JsonResponse(
                     status=status.HTTP_400_BAD_REQUEST, 
-                    data={'errors': f'Layer Name {layer_name} Not Found. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
+                    #data={'errors': f'Layer Name {layer_name} Not Found in SQS. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
+                    data={'errors': f'Layer Name {layer_name} Not Found'}
                 )
 
+        #import ipdb; ipdb.set_trace()
         filtered_cols = layer_gdf.loc[:, layer_gdf.columns != 'geometry'].columns # exclude column 'goeometry'
         if attrs_only:
             return  Response(dict(
@@ -170,12 +177,12 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         if attr_name and attr_name.lower() in filtered_cols.str.lower():
             filtered_cols = [attr_name.strip()]
         elif attr_name:
-            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Layer attribute {attr_name} not available on SQS. Available attrs: {filtered_cols}'})
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Attribute {attr_name} not found in {layer_name}.<br><br>Available attrs:<br>{list(filtered_cols)}'})
 
         data=[]
         for col in filtered_cols:
             if col.lower() != 'geometry':
-                data.append(dict(attribute=col, values=list(layer_gdf[col].unique())))
+                data.append(dict(attribute=col, values=layer_gdf[col].dropna().unique().tolist()))
 
         return  Response(data)
 
