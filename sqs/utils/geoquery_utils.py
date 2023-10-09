@@ -256,15 +256,19 @@ class DisturbanceLayerQueryHelper():
             for label in item_option_labels:
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
+                    #import ipdb; ipdb.set_trace()
                     #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
-                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+                    #if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+                    if label.casefold() == question['answer'].casefold():
+                        lbl = label if len(question['operator_response'])>0 else 'None'
+
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
 
                         response =  dict(
-                            result=label,
+                            result=lbl,
                             assessor_info=assessor_info,
-                            layer_details=[dict(name=schema_section, label=label, details=details, question=question)],
+                            layer_details=[dict(name=schema_section, label=lbl, details=details, question=question)],
                         )
                         return response
 
@@ -298,19 +302,17 @@ class DisturbanceLayerQueryHelper():
                 name = _d['name']
                 label = _d['label']
                 for question in processed_questions:
-                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-                        result.append(label) # result is in an array list 
+#                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+#                        result.append(label) # result is in an array list 
 
-#                    if label.casefold() == question['answer'].casefold():
-#                        #import ipdb; ipdb.set_trace()
-#                        if len(question['operator_response'])>0:
-#                            result.append(label) # result is in an array list 
-#                        else:
-#                            result.append('') # result is in an array list 
+                    if label.casefold() == question['answer'].casefold():
+                        #import ipdb; ipdb.set_trace()
+                        lbl = label if len(question['operator_response'])>0 else 'None'
 
+                        result.append(lbl) # result is in an array list 
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
-                        layer_details.append(dict(name=name, label=label, details=details, question=raw_data))
+                        layer_details.append(dict(name=name, label=lbl, details=details, question=raw_data))
 
             response =  dict(
                 result=result,
@@ -353,10 +355,11 @@ class DisturbanceLayerQueryHelper():
 
             raw_data = question
             details = raw_data.pop('layer_details', None)
+            result = labels_found[0] if len(labels_found)>0 else 'None', # return the first one found
             response =  dict(
-                result=labels_found[0] if len(labels_found)>0 else None, # return the first one found
+                result=result,
                 assessor_info=[question['assessor_answer']],
-                layer_details=[dict(name=schema_section, label='N/A', details=details, question=question)]
+                layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
             )
 
         except Exception as e:
@@ -394,10 +397,11 @@ class DisturbanceLayerQueryHelper():
 
             raw_data = question
             details = raw_data.pop('layer_details', None)
+            result = list(set(labels_found)) if labels_found else ['None']
             response =  dict(
-                result=list(set(labels_found)),
+                result=result,
                 assessor_info=[question['assessor_answer']],
-                layer_details=[dict(name=schema_section, label='N/A', details=details, question=question)]
+                layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
             )
 
         except Exception as e:
