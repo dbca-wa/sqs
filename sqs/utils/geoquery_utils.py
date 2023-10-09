@@ -158,9 +158,10 @@ class DisturbanceLayerQueryHelper():
                     layer_url = cddp_question['layer']['layer_url']
                     layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
 
+                    how = cddp_question['how']
                     column_name = cddp_question['column_name']
                     operator = cddp_question['operator']
-                    how = cddp_question['how']
+                    value = cddp_question['value']
 
         #            if cddp_question['question']=='1.0 Proposal title':
         #                #import ipdb; ipdb.set_trace()
@@ -183,21 +184,25 @@ class DisturbanceLayerQueryHelper():
                         logger.error(error_msg)
 
                     # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-                    operator = DefaultOperator(cddp_question, overlay_gdf, widget_type)
-                    operator_result = operator.operator_result()
+                    op = DefaultOperator(cddp_question, overlay_gdf, widget_type)
+                    operator_result = op.operator_result()
+                    condition = f'{column_name} -- {operator}'
+                    if operator != 'IsNotNull':
+                        condition += f' -- {value}'
 
                     #import ipdb; ipdb.set_trace()
                     res = dict(
                             question=cddp_question['question'],
                             answer=cddp_question['answer_mlq'],
                             visible_to_proponent=cddp_question['visible_to_proponent'],
-                            proponent_answer=operator.proponent_answer(),
-                            assessor_answer=operator.assessor_answer(),
                             layer_details = dict(**layer_info,
                                 sqs_timestamp=today.strftime(DATETIME_FMT),
                                 error_msg = error_msg,
                             ),
+                            condition=[how, condition],
                             operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
+                            proponent_answer=op.proponent_answer(),
+                            assessor_answer=op.assessor_answer(),
                         )
                     response.append(res)
                 else:
@@ -293,16 +298,22 @@ class DisturbanceLayerQueryHelper():
                 name = _d['name']
                 label = _d['label']
                 for question in processed_questions:
-                    #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
                     if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                         result.append(label) # result is in an array list 
+
+#                    if label.casefold() == question['answer'].casefold():
+#                        #import ipdb; ipdb.set_trace()
+#                        if len(question['operator_response'])>0:
+#                            result.append(label) # result is in an array list 
+#                        else:
+#                            result.append('') # result is in an array list 
+
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
                         layer_details.append(dict(name=name, label=label, details=details, question=raw_data))
 
             response =  dict(
                 result=result,
-                #result=list(set(result)),
                 assessor_info=assessor_info,
                 layer_details=layer_details,
             )
@@ -381,7 +392,6 @@ class DisturbanceLayerQueryHelper():
             labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
             labels_found.sort()
 
-            #import ipdb; ipdb.set_trace()
             raw_data = question
             details = raw_data.pop('layer_details', None)
             response =  dict(

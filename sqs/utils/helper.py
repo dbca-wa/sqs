@@ -115,7 +115,7 @@ class DefaultOperator():
                         self.row_filter = [idx for idx,x in enumerate(overlay_result) if int(float(x))==int(float(value))]
                     else:
                         # comparing strings
-                        self.row_filter = [idx for x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
+                        self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
 
             return self.row_filter
         except ValueError as e:
@@ -144,9 +144,18 @@ class DefaultOperator():
 
         proponent_text = []
         visible_to_proponent = self.cddp_question.get('visible_to_proponent', False)
-        proponent_answer = self.cddp_question.get('answer', '').strip()
         prefix_answer = self.cddp_question.get('prefix_answer', '').strip()
         no_polygons_proponent = self.cddp_question.get('no_polygons_proponent', -1)
+
+        #import ipdb; ipdb.set_trace()
+#        if self.widget_type in TEXT_WIDGETS or self.widget_type in ['select','multi-select']:
+#            proponent_answer = self.cddp_question.get('answer').strip() if self.cddp_question.get('answer') else ''
+#        else:
+#            proponent_answer = self.cddp_question.get('answer_mlq').strip() if self.cddp_question.get('answer_mlq') else ''
+
+        proponent_answer = self.cddp_question.get('answer_mlq').strip() if self.cddp_question.get('answer_mlq') else ''
+        if not proponent_answer:
+            proponent_answer = self.cddp_question.get('answer').strip() if self.cddp_question.get('answer') else ''
 
         if not visible_to_proponent:
             _str = prefix_answer + ' ' + proponent_answer if '::' not in proponent_answer else prefix_answer
@@ -176,7 +185,6 @@ class DefaultOperator():
                 # text to be inserted always at beginning of an answer text
                 proponent_text = prefix_answer + ' ' + proponent_text if proponent_text else prefix_answer
 
-        #import ipdb; ipdb.set_trace()
         return proponent_text
         #return proponent_text if isinstance(proponent_text, list) else [proponent_text]
         #return list(set(proponent_text))
