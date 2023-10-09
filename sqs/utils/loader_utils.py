@@ -38,9 +38,9 @@ class LayerLoader():
         
     def retrieve_layer(self):
         try:
-            res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None)
+            res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None, timeout=settings.REQUEST_TIMEOUT)
             if res.status_code != HTTP_200_OK:
-                res = requests.get('{}'.format(self.url), verify=None)
+                res = requests.get('{}'.format(self.url), verify=None, timeout=settings.REQUEST_TIMEOUT)
 
             res.raise_for_status()
             return res.json()

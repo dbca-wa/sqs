@@ -155,7 +155,10 @@ class DefaultLayerProviderView(View):
             logger.error(traceback.print_exc())
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
 
-        layer_info['message'] = f'Layer {layer_info["layer_name"]} Updated.'
+        if layer_info.get('layer_version') > cur_version:
+            layer_info['message'] = f'Layer {layer_info["layer_name"]} Updated.'
+        else:
+            layer_info['message'] = f'Layer {layer_info["layer_name"]} Not Updated - there is no change to layer'
         return JsonResponse(layer_info)
 
 
