@@ -238,6 +238,8 @@ class DisturbanceLayerQueryHelper():
             2. Iterate through item_options (from proposal.schema) and compare with question['answer']
 
             If item_options==question['answer'] && len(question['operator_response'])>0, then return rb as checked
+
+            result --> result (str, returns first label from list of labels that match operator_response)
         '''
         response = {}
         question = {}
@@ -283,6 +285,8 @@ class DisturbanceLayerQueryHelper():
             2. Iterate through item_options (from proposal.schema) and compare with question['answer']
 
             If item_options==question['answer'] && len(question['operator_response'])>0, then return cb as checked
+
+            result --> result (list, list of labels that match operator_response)
         '''
         response = {}
         question = {}
@@ -328,8 +332,8 @@ class DisturbanceLayerQueryHelper():
     def find_select(self, item):
         ''' Widget --> select
             1. question['operator_response']  --> contains results from SQS intersection and equality comparison
-
-            If len(question['operator_response'])>0, then return select item as checked
+            
+            result --> result (str, first item in sorted list of labels that match operator_response)
         '''
         response = {}
         question = {}
@@ -346,7 +350,7 @@ class DisturbanceLayerQueryHelper():
             question = processed_questions[0]
 
             item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
-            operator_response = question['proponent_answer'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
+            operator_response = question['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
             # return only those labels that are in the available choices to the proponent
             # case-insensitive intersection. returns labels found in both lists
@@ -355,9 +359,9 @@ class DisturbanceLayerQueryHelper():
 
             raw_data = question
             details = raw_data.pop('layer_details', None)
-            result = labels_found[0] if len(labels_found)>0 else 'None', # return the first one found
+            result = labels_found[0] if len(labels_found)>0 else 'None' # return the first one found
             response =  dict(
-                result=result,
+                result=result, # returns str
                 assessor_info=[question['assessor_answer']],
                 layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
             )
@@ -371,7 +375,7 @@ class DisturbanceLayerQueryHelper():
         ''' Widget --> multi-select
             1. question['operator_response']  --> contains results from SQS intersection and equality comparison
 
-            If len(question['operator_response'])>0, then return multi-selects item as checked
+            result --> result (list of labels that match operator_response)
         '''
         response = {}
         question = {}
@@ -388,7 +392,7 @@ class DisturbanceLayerQueryHelper():
             question = processed_questions[0]
 
             item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
-            operator_response = question['proponent_answer'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
+            operator_response = question['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
             # return only those labels that are in the available choices to the proponent
             # case-insensitive intersection. returns labels found in both lists
@@ -414,9 +418,8 @@ class DisturbanceLayerQueryHelper():
         ''' Widget --> text, text_area
             Iterate through spatial join response and return all items retrieved by spatial join method, that also 
             exists in item_options (from proposal.schema)
-            (Test Proposal --> http://localhost:8003/external/proposal/1525)
 
-            Returns --> str
+            Returns --> str 
         '''
         response = {}
         question = {}
