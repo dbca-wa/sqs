@@ -165,7 +165,6 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
                     data={'errors': f'Layer Name {layer_name} Not Found'}
                 )
 
-        #import ipdb; ipdb.set_trace()
         filtered_cols = layer_gdf.loc[:, layer_gdf.columns != 'geometry'].columns # exclude column 'goeometry'
         if attrs_only:
             return  Response(dict(
@@ -228,8 +227,8 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     def request_data(self, request, *args, **kwargs):            
         """
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all&system=das ('all'/'partial'/'single')
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=all&system=das&when=True
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das ('full'/'partial'/'single')
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das&when=True
 
             if '&when=True' is provided only timestamp details will be returned in the response
         """
@@ -254,10 +253,12 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/logs/766/request_log.json
             https://sqs-dev.dbcachema,wa.gov.au/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=all ('all'/'partial'/'single')
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=FULL ('full'/'partial'/'single')
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?metrics=true
         """
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
+        metrics = request.GET.get('metrics')
 
         if pk == 'last':
             instance = self.queryset.last()
@@ -270,6 +271,9 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
             instance = self.get_object()
 
         serializer = self.get_serializer(instance, remove_fields=['data']) 
+        if metrics and metrics == 'true':
+            return Response(serializer.data['response']['metrics']['spatial_query'])
+
         return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])

@@ -9,6 +9,10 @@ INT   = 'Int'
 FLOAT = 'Float'
 
 TEXT_WIDGETS = ['text', 'text_area']
+RADIOBUTTONS = 'radiobuttons'
+CHECKBOX = 'checkbox'
+MULTI_SELECT = 'multi-select'
+SELECT = 'select'
 
 DATE_FMT = '%Y-%m-%d'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
