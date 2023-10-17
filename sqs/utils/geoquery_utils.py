@@ -13,6 +13,7 @@ import io
 import pytz
 import traceback
 from datetime import datetime
+import time
 
 from sqs.components.gisquery.models import Layer #, Feature#, LayerHistory
 from sqs.utils.loader_utils import DbLayerProvider
@@ -21,6 +22,14 @@ from sqs.utils.helper import (
     #HelperUtils,
     #pop_list,
 )
+from sqs.utils import (
+    TEXT_WIDGETS,
+    RADIOBUTTONS,
+    CHECKBOX,
+    MULTI_SELECT,
+    SELECT,
+)
+
 from sqs.utils import HelperUtils
 from sqs.exceptions import LayerProviderException
 
@@ -38,6 +47,8 @@ class DisturbanceLayerQueryHelper():
         self.geojson = self.read_geojson(geojson)
         self.proposal = proposal
         self.unprocessed_questions = []
+        self.metrics = []
+        #self.total_query_time = 0.0
 
     def read_geojson(self, geojson):
         """ geojson is the user specified polygon, used to intersect the layers """
@@ -130,6 +141,25 @@ class DisturbanceLayerQueryHelper():
 
         return []
 
+    def set_metrics(self, cddp_question, layer_provider, expired, condition, time_retrieve_layer, time_taken, error):
+        self.metrics.append(
+            dict(
+                question=cddp_question['question'],
+                answer_mlq=cddp_question['answer_mlq'],
+                expired=expired,
+                layer_name=layer_provider.layer_name,
+                layer_cached=layer_provider.layer_cached,
+                condition=condition,
+                time_retrieve_layer=round(time_retrieve_layer, 3),
+                time=round(time_taken, 3),
+                error=f'{error}',
+                result=None,
+                assessor_answer=None,
+                operator_response=None,
+            )
+        )
+        return self.metrics
+
     def spatial_join_gbq(self, question, widget_type):
         '''
         Process new Question (grouping by like-questions) and results stored in cache 
@@ -144,19 +174,27 @@ class DisturbanceLayerQueryHelper():
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
             response = []
+            expired = False
 
             grouped_questions = self.get_grouped_questions(question)
             if len(grouped_questions)==0:
                 return response
 
             for cddp_question in grouped_questions['questions']:
+                start_time = time.time()
 
                 question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
                 if question_expiry is None or question_expiry >= today.date():
       
+#                    if cddp_question['answer_mlq'] == 'National park':
+#                        raise Exception('Some Error Occurred ...')
+
+                    start_time_retrieve_layer = time.time()
                     layer_name = cddp_question['layer']['layer_name']
                     layer_url = cddp_question['layer']['layer_url']
-                    layer_info, layer_gdf = DbLayerProvider(layer_name, url=layer_url).get_layer()
+                    layer_provider = DbLayerProvider(layer_name, url=layer_url)
+                    layer_info, layer_gdf = layer_provider.get_layer()
+                    time_retrieve_layer = time.time() - start_time_retrieve_layer
 
                     how = cddp_question['how']
                     column_name = cddp_question['column_name']
@@ -190,7 +228,6 @@ class DisturbanceLayerQueryHelper():
                     if operator != 'IsNotNull':
                         condition += f' -- {value}'
 
-                    #import ipdb; ipdb.set_trace()
                     res = dict(
                             question=cddp_question['question'],
                             answer=cddp_question['answer_mlq'],
@@ -207,15 +244,19 @@ class DisturbanceLayerQueryHelper():
                     response.append(res)
                 else:
                     logger.warn(f'Expired {question_expiry}: Ignoring question {cddp_question}')
+                    expired = True
+
+                self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
 
         except Exception as e: 
             logger.error(e)
+            self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
+
             #res = dict(
             #    layer_details = dict(
             #        error_msg = str(e)
             #    ),
             #)
-
         
         return response
 
@@ -231,6 +272,53 @@ class DisturbanceLayerQueryHelper():
             logger.error(f'Error Searching Question comination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
 
         return processed_questions
+
+    def query_question(self, item, answer_type):
+
+        def set_metric_result(response):
+            ''' Adds result from the intersection (and label) to metrics'''
+            try:
+                if 'layer_details' in response:
+                    for layer_detail in response['layer_details']:
+                        question = layer_detail['question']['question']
+                        answer_mlq = layer_detail['question']['answer']
+                        for idx, metric in enumerate(self.metrics):
+                            if metric['question']==question and metric['answer_mlq']==answer_mlq:
+                                #metric.update({'result':', '.join(  response['result'] )})
+                                if response['result']:
+                                    metric.update({'result': response['result']})
+                                else:
+                                    metric.update({'result': proponent_answer})
+                                    proponent_answer = layer_detail['question']['proponent_answer']
+
+                                assessor_answer = layer_detail['question']['assessor_answer']
+                                operator_response = ', '.join( layer_detail['question']['operator_response'] )
+                                metric.update({'assessor_answer': assessor_answer})
+                                metric.update({'operator_response': operator_response})
+            except Exception as e:
+                logger.warn(f'Could not add result to Metrics\n{e}')
+
+
+        #start_time = time.time()
+        response = {}
+        if answer_type == RADIOBUTTONS:
+            response = self.find_radiobutton(item)
+
+        elif answer_type == CHECKBOX:
+            response = self.find_checkbox(item)
+
+        elif answer_type == MULTI_SELECT:
+            response = self.find_multiselect(item)
+
+        elif answer_type == SELECT:
+            response = self.find_select(item)
+
+        elif answer_type == TEXT_WIDGETS:
+            response = self.find_other(item)
+
+        set_metric_result(response)
+        #self.total_query_time += time.time() - start_time
+        return response
 
     def find_radiobutton(self, item):
         ''' Widget --> radiobutton
@@ -258,7 +346,6 @@ class DisturbanceLayerQueryHelper():
             for label in item_option_labels:
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
-                    #import ipdb; ipdb.set_trace()
                     #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
                     #if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                     if label.casefold() == question['answer'].casefold():
@@ -310,7 +397,6 @@ class DisturbanceLayerQueryHelper():
 #                        result.append(label) # result is in an array list 
 
                     if label.casefold() == question['answer'].casefold():
-                        #import ipdb; ipdb.set_trace()
                         lbl = label if len(question['operator_response'])>0 else 'None'
 
                         result.append(lbl) # result is in an array list 
@@ -439,7 +525,8 @@ class DisturbanceLayerQueryHelper():
                 label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
                     #assessor_info = question['assessor_answer'],
-                    assessor_info = list(set(question['assessor_answer'])),
+                    result=label,
+                    assessor_info = question['assessor_answer'],
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 

@@ -6,6 +6,14 @@ from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper
 #from sqs.utils.helper  import SchemaSearch
 from sqs.exceptions import LayerProviderException
 
+from sqs.utils import (
+    TEXT_WIDGETS,
+    RADIOBUTTONS,
+    CHECKBOX,
+    MULTI_SELECT,
+    SELECT,
+)
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -66,7 +74,7 @@ class DisturbancePrefillData(object):
             raise Exception(f'Missing name in item {item["label"]}. Possibly Question/Section not provided!')
 
         if 'children' not in item:
-            if item['type'] =='checkbox':
+            if item['type'] ==CHECKBOX:
                 if sqs_value:
                     for val in sqs_value:
                         if val.casefold()==item['label'].casefold():
@@ -76,11 +84,12 @@ class DisturbancePrefillData(object):
                 #print('file item', item)
                 pass
             else:
-                    if item['type'] == 'multi-select':
+                    if item['type'] == MULTI_SELECT:
                         #Get value from SQS. Value should be an array of the correct options.
                         
                         # don't overwrite if propsal['data'] already has a value set
-                        sqs_dict = self.layer_query_helper.find_multiselect(item)
+                        #sqs_dict = self.layer_query_helper.find_multiselect(item)
+                        sqs_dict = self.layer_query_helper.query_question(item, MULTI_SELECT)
                         sqs_values = sqs_dict.get('result')
                         self._update_layer_info(sqs_dict)
                         
@@ -96,12 +105,14 @@ class DisturbancePrefillData(object):
                                         if val.casefold()==op['label'].casefold():
                                             item_data[item['name']].append(op['value'])
 
-                    elif item['type'] in ['radiobuttons', 'select']:
+                    elif item['type'] in [RADIOBUTTONS, SELECT]:
                         #Get value from SQS
-                        if item['type'] == 'select':
-                            sqs_dict = self.layer_query_helper.find_select(item)
-                        elif item['type'] == 'radiobuttons':
-                            sqs_dict = self.layer_query_helper.find_radiobutton(item)
+                        if item['type'] == SELECT:
+                            #sqs_dict = self.layer_query_helper.find_select(item)
+                            sqs_dict = self.layer_query_helper.query_question(item, SELECT)
+                        elif item['type'] == RADIOBUTTONS:
+                            #sqs_dict = self.layer_query_helper.find_radiobutton(item)
+                            sqs_dict = self.layer_query_helper.query_question(item, RADIOBUTTONS)
 
                         sqs_value = sqs_dict.get('result')
                         layer_details = sqs_dict.get('layer_details')
@@ -116,10 +127,11 @@ class DisturbancePrefillData(object):
                                         item_data[item['name']]=op['value']
                                         break
 
-                    elif item['type'] in ['text', 'text_area']:
+                    elif item['type'] in TEXT_WIDGETS: #['text', 'text_area']:
                         #All the other types e.g. text_area, text, date (except label).
                         if item['type'] != 'label':
-                            sqs_dict = self.layer_query_helper.find_other(item)
+                            #sqs_dict = self.layer_query_helper.find_other(item)
+                            sqs_dict = self.layer_query_helper.query_question(item, TEXT_WIDGETS)
                             assessor_info = sqs_dict.get('assessor_info')
                             if sqs_dict.get('layer_details'):
                                 item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
@@ -144,7 +156,8 @@ class DisturbancePrefillData(object):
                     # 3. request response for all checkbox's ie. send item['children'][all]['label']. 
                     #    SQS will return a list of checkbox's answersfound eg. ['National park', 'Nature reserve']
 
-                    sqs_dict = self.layer_query_helper.find_checkbox(item)
+                    #sqs_dict = self.layer_query_helper.find_checkbox(item)
+                    sqs_dict = self.layer_query_helper.query_question(item, CHECKBOX)
                     sqs_values = sqs_dict.get('result')
                     if sqs_values:
                         self._update_assessor_info(item, sqs_dict)
@@ -181,7 +194,7 @@ class DisturbancePrefillData(object):
     def check_checkbox_item(self, item_name,item,item_data,repetition,suffix):
         checkbox_item=False
         for child_item in item.get('children'):
-            if child_item['type']=='checkbox':
+            if child_item['type']==CHECKBOX:
                 checkbox_item=True        
         return checkbox_item
 

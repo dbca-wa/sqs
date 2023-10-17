@@ -10,6 +10,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.cache import cache
 
 from datetime import datetime, timedelta
+import time
 import requests
 import json
 import unicodecsv
@@ -57,6 +58,7 @@ class DisturbanceLayerView(View):
             return datetime.strptime(datetime.strftime(when, '%Y-%m-%dT%H:%M:%S'), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
 
 
+        start_time = time.time()
         cache_key = None
         try:
             data = json.loads(request.POST['data'])
@@ -100,10 +102,18 @@ class DisturbanceLayerView(View):
             dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
             response = dlq.query()
             response['sqs_log_url'] = request.build_absolute_uri().replace('das/spatial_query', f'logs/{request_log.id}/request_log')
+            #response['metrics'] = dlq.lq_helper.metrics
             response['request_type'] = request_type
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
             request_log.response = response
+            request_log.response.update({
+                'metrics': dict(
+                    total_query_time=round(time.time() - start_time, 3),
+                    #total_query_time=round(dlq.lq_helper.total_query_time, 3),
+                    spatial_query=dlq.lq_helper.metrics,
+                )
+            })
             request_log.save()
 
         except LayerProviderException as e:

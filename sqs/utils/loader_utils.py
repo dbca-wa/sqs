@@ -156,6 +156,7 @@ class DbLayerProvider():
     def __init__(self, layer_name, url):
         self.layer_name = layer_name
         self.url = url
+        self.layer_cached = False
 
     def get_layer(self, from_geoserver=True):
         '''
@@ -254,6 +255,8 @@ class DbLayerProvider():
         # try to get from cached 
         layer_gdf = cache.get(self.LAYER_CACHE.format(self.layer_name))
         layer_info = cache.get(self.LAYER_DETAILS_CACHE.format(self.layer_name))
+
+        self.layer_cached = True if layer_gdf is not None else False
         return layer_info, layer_gdf
 
     def clear_cache(self):

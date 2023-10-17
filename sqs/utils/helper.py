@@ -133,85 +133,60 @@ class DefaultOperator():
         '''
         column_name   = self.cddp_question.get('column_name')
         _operator_result = self._get_overlay_result(column_name)
-        #import ipdb; ipdb.set_trace()
         #return _operator_result
         return list(set(_operator_result))
 
     def proponent_answer(self):
+        """ Answer to be prefilled for proponent
         """
-        Answer to be prefilled for proponent
-        """
-
-        proponent_text = []
+        proponent_text_str = ''
         visible_to_proponent = self.cddp_question.get('visible_to_proponent', False)
-        prefix_answer = self.cddp_question.get('prefix_answer', '').strip()
-        no_polygons_proponent = self.cddp_question.get('no_polygons_proponent', -1)
+        proponent_items = self.cddp_question.get('proponent_items')
 
-        #import ipdb; ipdb.set_trace()
-        proponent_answer = self.cddp_question.get('answer').strip() if self.cddp_question.get('answer') else ''
-#        proponent_answer = self.cddp_question.get('answer_mlq').strip() if self.cddp_question.get('answer_mlq') else ''
-#        if not proponent_answer:
-#            proponent_answer = self.cddp_question.get('answer').strip() if self.cddp_question.get('answer') else ''
+        if visible_to_proponent and self.widget_type in TEXT_WIDGETS:
+            proponent_answer = []
+            for item in proponent_items:
+                prefix = ''
+                answer = ''
+                if 'prefix' in item:
+                    prefix = item["prefix"]
+         
+                if 'answer' in item:
+                    column_name = item['answer'].strip()
+                    proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+                    answer = f'{prefix} {item["answer"]}'
+         
+                proponent_answer.append(answer.strip())
+            proponent_text_str = '\n'.join(proponent_answer)
 
-        if not visible_to_proponent:
-            _str = prefix_answer + ' ' + proponent_answer if '::' not in proponent_answer else prefix_answer
-            return _str.strip()
+        else:
+            prefix_answers = '\n'.join( [item['prefix'] for item in proponent_items if 'prefix' in item and item['prefix']] )
+            return prefix_answers.strip()
 
-        if proponent_answer:
-            if '::' in proponent_answer:
-                column_name = proponent_answer.split('::')[1].strip()
-                proponent_text = list(set(self._get_overlay_result(column_name)))
-            else:
-                proponent_text = proponent_answer
-
-        if no_polygons_proponent >= 0:
-            # extract the result from the first 'no_polygons_proponent' polygons only
-            proponent_text = proponent_text[:no_polygons_proponent]
-
-        if self.widget_type in TEXT_WIDGETS:
-            # Return text string for TEXT WIDGETS
-
-            # perform additional processing and convert list to str (otherwise return list)
-            if proponent_text and isinstance(proponent_text, list) and isinstance(proponent_text[0], str):
-                proponent_text = ', '.join(proponent_text)
-
-            if prefix_answer:
-                # text to be inserted always at beginning of an answer text
-                proponent_text = prefix_answer + ' ' + proponent_text if proponent_text else prefix_answer
-
-        return proponent_text
+        return proponent_text_str
         
     def assessor_answer(self):
+        """ Answer to be prefilled for assessor
         """
-        Answer to be prefilled for assessor
-        """
+        assessor_text_str = ''
+        assessor_items = self.cddp_question.get('assessor_items')
 
-        assessor_text = []
-        assessor_info = self.cddp_question.get('assessor_info', '').strip()
-        prefix_info = self.cddp_question.get('prefix_info', '').strip()
-        no_polygons_assessor = self.cddp_question.get('no_polygons_assessor', -1)
+        assessor_info = []
+        for item in assessor_items:
+            prefix = ''
+            info = ''
+            if 'prefix' in item:
+                prefix = item["prefix"]
+     
+            if 'info' in item:
+                column_name = item['info'].strip()
+                assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+                info = f'{prefix} {item["info"]}'
+     
+            assessor_info.append(info.strip())
+        assessor_text_str = '\n'.join(assessor_info)
 
-        if assessor_info:
-            # assessor must see this response instead of overlay response answer
-            if '::' in assessor_info:
-                column_name = assessor_info.split('::')[1].strip()
-                assessor_text = list(set(self._get_overlay_result(column_name)))
-            else:
-                assessor_text = assessor_info
-
-        if no_polygons_assessor >= 0:
-            # extract the result from the first 'no_polygons_proponent' polygons
-            assessor_text = assessor_text[:no_polygons_assessor]
-
-        if assessor_text and isinstance(assessor_text, list) and isinstance(assessor_text[0], str):
-            assessor_text = ', '.join(assessor_text)
-
-        if prefix_info:
-            # text to be inserted always at beginning of an answer text
-            assessor_text = prefix_info + ' ' + assessor_text if assessor_text else prefix_info
-
-        return assessor_text
-        #return list(set(assessor_text))
+        return assessor_text_str
 
  
 
