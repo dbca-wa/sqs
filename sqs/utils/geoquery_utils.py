@@ -153,6 +153,9 @@ class DisturbanceLayerQueryHelper():
                 time_retrieve_layer=round(time_retrieve_layer, 3),
                 time=round(time_taken, 3),
                 error=f'{error}',
+                result=None,
+                assessor_answer=None,
+                operator_response=None,
             )
         )
         return self.metrics
@@ -254,7 +257,6 @@ class DisturbanceLayerQueryHelper():
             #        error_msg = str(e)
             #    ),
             #)
-
         
         return response
 
@@ -273,6 +275,30 @@ class DisturbanceLayerQueryHelper():
 
     def query_question(self, item, answer_type):
 
+        def set_metric_result(response):
+            ''' Adds result from the intersection (and label) to metrics'''
+            try:
+                if 'layer_details' in response:
+                    for layer_detail in response['layer_details']:
+                        question = layer_detail['question']['question']
+                        answer_mlq = layer_detail['question']['answer']
+                        for idx, metric in enumerate(self.metrics):
+                            if metric['question']==question and metric['answer_mlq']==answer_mlq:
+                                #metric.update({'result':', '.join(  response['result'] )})
+                                if response['result']:
+                                    metric.update({'result': response['result']})
+                                else:
+                                    metric.update({'result': proponent_answer})
+                                    proponent_answer = layer_detail['question']['proponent_answer']
+
+                                assessor_answer = layer_detail['question']['assessor_answer']
+                                operator_response = ', '.join( layer_detail['question']['operator_response'] )
+                                metric.update({'assessor_answer': assessor_answer})
+                                metric.update({'operator_response': operator_response})
+            except Exception as e:
+                logger.warn(f'Could not add result to Metrics\n{e}')
+
+
         #start_time = time.time()
         response = {}
         if answer_type == RADIOBUTTONS:
@@ -290,6 +316,7 @@ class DisturbanceLayerQueryHelper():
         elif answer_type == TEXT_WIDGETS:
             response = self.find_other(item)
 
+        set_metric_result(response)
         #self.total_query_time += time.time() - start_time
         return response
 
@@ -498,7 +525,8 @@ class DisturbanceLayerQueryHelper():
                 label = question['proponent_answer'] if question['proponent_answer'] else None
                 response =  dict(
                     #assessor_info = question['assessor_answer'],
-                    assessor_info = list(set(question['assessor_answer'])),
+                    result=label,
+                    assessor_info = question['assessor_answer'],
                     layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
                 )
 
