@@ -188,9 +188,6 @@ class DisturbanceLayerQueryHelper():
                 question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
                 if question_expiry is None or question_expiry >= today.date():
       
-#                    if cddp_question['answer_mlq'] == 'National park':
-#                        raise Exception('Some Error Occurred ...')
-
                     start_time_retrieve_layer = time.time()
                     layer_name = cddp_question['layer']['layer_name']
                     layer_url = cddp_question['layer']['layer_url']
@@ -254,12 +251,6 @@ class DisturbanceLayerQueryHelper():
             logger.error(e)
             self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
 
-            #res = dict(
-            #    layer_details = dict(
-            #        error_msg = str(e)
-            #    ),
-            #)
-        
         return response
 
     def get_processed_question(self, question, widget_type):
@@ -338,35 +329,27 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            #item_option_labels = [i['label'] for i in item_options]
-            #item_option_values = [i['value'] for i in item_options]
-
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
-            assessor_info=[]
             layer_details=[]
             for item in item_options:
                 label = item['label']
                 value = item['value']
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
-                    #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
-                    #if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-                    if label.casefold() == question['answer'].casefold():
-                        lbl = label if len(question['operator_response'])>0 else None
-                        value = value if len(question['operator_response'])>0 else None
+                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
 
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
 
                         response =  dict(
-                            result=lbl,
-                            assessor_info=assessor_info,
+                            result=label,
+                            assessor_info=[],
                             layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
                         )
-                        if value:
+                        if label or value:
                             # return first match found
                             return response
 
@@ -396,27 +379,22 @@ class DisturbanceLayerQueryHelper():
                 return {}
 
             result=[]
-            assessor_info=[]
             layer_details=[]
             for _d in item_options_dict:
                 name = _d['name']
                 label = _d['label']
                 for question in processed_questions:
-#                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-#                        result.append(label) # result is in an array list 
+                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
 
-                    if label.casefold() == question['answer'].casefold():
-                        lbl = label if len(question['operator_response'])>0 else None
-
-                        result.append(lbl) # result is in an array list 
+                        result.append(label) # result is in an array list 
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
                         # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
-                        layer_details.append(dict(name=name, label=[lbl], details=details, question=raw_data))
+                        layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
 
             response =  dict(
                 result=result,
-                assessor_info=assessor_info,
+                assessor_info=[],
                 layer_details=layer_details,
             )
 
@@ -451,16 +429,19 @@ class DisturbanceLayerQueryHelper():
             # return only those labels that are in the available choices to the proponent
             # case-insensitive intersection. returns labels found in both lists
             labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+            #labels_found = [str.casefold(x) for x in operator_response]
             labels_found.sort()
 
             raw_data = question
             details = raw_data.pop('layer_details', None)
-            result = labels_found[0] if len(labels_found)>0 else 'None' # return the first one found
-            response =  dict(
-                result=result, # returns str
-                assessor_info=[question['assessor_answer']],
-                layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
-            )
+            if len(labels_found)>0:
+                result = labels_found[0] # return the first one found
+                response =  dict(
+                    result=result, # returns str
+                    #assessor_info=[question['assessor_answer']],
+                    assessor_info=[],
+                    layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
+                )
 
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -493,22 +474,24 @@ class DisturbanceLayerQueryHelper():
             # return only those labels that are in the available choices to the proponent
             # case-insensitive intersection. returns labels found in both lists
             labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+            #labels_found = [str.casefold(x) for x in operator_response]
             labels_found.sort()
 
             raw_data = question
             details = raw_data.pop('layer_details', None)
-            result = list(set(labels_found)) if labels_found else ['None']
-            response =  dict(
-                result=result,
-                assessor_info=[question['assessor_answer']],
-                layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
-            )
+            if labels_found:
+                result = list(set(labels_found))
+                response =  dict(
+                    result=result,
+                    #assessor_info=[question['assessor_answer']],
+                    assessor_info=[],
+                    layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
+                )
 
         except Exception as e:
             logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
         return response
-
 
     def find_other(self, item):
         ''' Widget --> text, text_area
