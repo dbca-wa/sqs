@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 DATE_FMT = '%Y-%m-%d'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
 
+RESPONSE_LEN = 75
+
 
 class DisturbanceLayerQueryHelper():
 
@@ -284,15 +286,15 @@ class DisturbanceLayerQueryHelper():
                         answer_mlq = layer_detail['question']['answer']
                         for idx, metric in enumerate(self.metrics):
                             if metric['question']==question and metric['answer_mlq']==answer_mlq:
-                                #metric.update({'result':', '.join(  response['result'] )})
                                 if response['result']:
                                     metric.update({'result': response['result']})
                                 else:
-                                    metric.update({'result': proponent_answer})
                                     proponent_answer = layer_detail['question']['proponent_answer']
+                                    metric.update({'result': proponent_answer})
 
                                 assessor_answer = layer_detail['question']['assessor_answer']
-                                operator_response = ', '.join( layer_detail['question']['operator_response'] )
+                                operator_response = ', '.join(map(str, layer_detail['question']['operator_response']))
+                                operator_response = operator_response[:RESPONSE_LEN] + ' ...' if len(operator_response)>RESPONSE_LEN else operator_response
                                 metric.update({'assessor_answer': assessor_answer})
                                 metric.update({'operator_response': operator_response})
             except Exception as e:
@@ -336,20 +338,25 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            item_option_labels = [i['label'] for i in item_options]
+            #item_option_labels = [i['label'] for i in item_options]
+            #item_option_values = [i['value'] for i in item_options]
+
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
             assessor_info=[]
             layer_details=[]
-            for label in item_option_labels:
+            for item in item_options:
+                label = item['label']
+                value = item['value']
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
                     #if label.casefold() == question['answer'].casefold() and any(label.casefold() == s.casefold() for s in question['operator_response']):
                     #if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
                     if label.casefold() == question['answer'].casefold():
-                        lbl = label if len(question['operator_response'])>0 else 'None'
+                        lbl = label if len(question['operator_response'])>0 else None
+                        value = value if len(question['operator_response'])>0 else None
 
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
@@ -357,9 +364,11 @@ class DisturbanceLayerQueryHelper():
                         response =  dict(
                             result=lbl,
                             assessor_info=assessor_info,
-                            layer_details=[dict(name=schema_section, label=lbl, details=details, question=question)],
+                            layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
                         )
-                        return response
+                        if value:
+                            # return first match found
+                            return response
 
         except Exception as e:
             logger.error(f'RADIOBUTTON: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -397,12 +406,13 @@ class DisturbanceLayerQueryHelper():
 #                        result.append(label) # result is in an array list 
 
                     if label.casefold() == question['answer'].casefold():
-                        lbl = label if len(question['operator_response'])>0 else 'None'
+                        lbl = label if len(question['operator_response'])>0 else None
 
                         result.append(lbl) # result is in an array list 
                         raw_data = question
                         details = raw_data.pop('layer_details', None)
-                        layer_details.append(dict(name=name, label=lbl, details=details, question=raw_data))
+                        # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
+                        layer_details.append(dict(name=name, label=[lbl], details=details, question=raw_data))
 
             response =  dict(
                 result=result,

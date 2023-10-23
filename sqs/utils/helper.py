@@ -154,7 +154,8 @@ class DefaultOperator():
                 if 'answer' in item:
                     column_name = item['answer'].strip()
                     proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                    answer = f'{prefix} {item["answer"]}'
+                    #answer = f'{prefix} {item["answer"]}'
+                    answer = f'{prefix} {proponent_text}'
          
                 proponent_answer.append(answer.strip())
             proponent_text_str = '\n'.join(proponent_answer)
@@ -181,7 +182,8 @@ class DefaultOperator():
             if 'info' in item:
                 column_name = item['info'].strip()
                 assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                info = f'{prefix} {item["info"]}'
+                #info = f'{prefix} {item["info"]}'
+                info = f'{prefix} {assessor_text}'
      
             assessor_info.append(info.strip())
         assessor_text_str = '\n'.join(assessor_info)

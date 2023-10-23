@@ -67,6 +67,7 @@ class DisturbancePrefillData(object):
     def _populate_data_from_item(self, item, repetition, suffix, sqs_value=None):
 
         item_data = {}
+        sqs_dict = None
 
         if isinstance(item, dict) and 'name' in item:
             extended_item_name = item['name']
@@ -175,6 +176,8 @@ class DisturbancePrefillData(object):
                             item_data.update(self._populate_data_from_item(child,  repetition, suffix))
             except Exception as e:
                 logger.error(f'Error "conditions": {str(e)}')
+                if sqs_dict:
+                    logger.error(sqs_dict)
 
         return item_data
 
@@ -209,8 +212,8 @@ class DisturbancePrefillData(object):
                     dict(
                         name=ld['name'] if 'name' in ld else None,
                         #response=ld['label'] if 'label' in ld else None,
-                        #response=ld['question']['operator_response'],
-                        result=ld['label'],
+                        #response=ld['question']['operator_response'],  # USED By Refresh button 
+                        result=ld['label'], # Response for DAS 'Refresh' buttons
                         **ld['details'],
                         #msg=ld['details'] if sqs_values else ld['details']['error_msg'],
                         sqs_data=ld['question'],
