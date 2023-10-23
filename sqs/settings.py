@@ -35,8 +35,12 @@ CACHE_TIMEOUT_1_MINUTE = 60
 CACHE_TIMEOUT_5_MINUTES = 60 * 5
 CACHE_TIMEOUT_2_HOURS = 60 * 60 * 2
 CACHE_TIMEOUT_24_HOURS = 60 * 60 * 24
-CACHE_TIMEOUT = env('CACHE_TIMEOUT', CACHE_TIMEOUT_24_HOURS)
 
+# This cache is updated first Sunday of each month by cron. Also, updated if an existing layer 
+# is updated (on demand, and by nightly cron 'manage.py update_active_layers')
+CACHE_TIMEOUT = env('CACHE_TIMEOUT', None) 
+
+# API Request cache
 REQUEST_CACHE_TIMEOUT = env('REQUEST_CACHE_TIMEOUT', 60*10) # 10 mins
 REQUEST_PARTIAL_CACHE_TIMEOUT = env('REQUEST_PARTIAL_CACHE_TIMEOUT', 60*2) # 2 mins
 
