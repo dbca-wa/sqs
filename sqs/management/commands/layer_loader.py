@@ -15,11 +15,11 @@ class Command(BaseCommand):
     Load Layer util
     """
 
-    help = 'Loads Layer from Geoserver: ./manage.py layer_loader --url "https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application.json" --name "cddp:dpaw_regions"'
+    help = 'Loads Layer from Geoserver: ./manage.py layer_loader --url "https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/CPT_DBCA_REGIONS/layer/" --name "CPT_DBCA_REGIONS"'
 
     def add_arguments(self, parser):
-        parser.add_argument('--name', nargs='?', type=str, help='Geoserver layer name eg. "cddp:dpaw_regions"')
-        parser.add_argument('--url', nargs='?', type=str, help='Geoserver URL, eg. https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application.json')
+        parser.add_argument('--name', nargs='?', type=str, help='Geoserver layer name eg. "CPT_DBCA_REGIONS"')
+        parser.add_argument('--url', nargs='?', type=str, help='Geoserver URL, eg. https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/CPT_DBCA_REGIONS/layer/')
 
     def handle(self, *args, **options):
         url = options['url']
@@ -27,7 +27,4 @@ class Command(BaseCommand):
         logger.info('Running command {}'.format(__name__))
 
         layer_info, layer_gdf = DbLayerProvider(name, url).get_layer_from_geoserver()
-
-
-
 

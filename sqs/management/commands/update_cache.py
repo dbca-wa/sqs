@@ -33,7 +33,7 @@ class Command(BaseCommand):
                 layer_info = layer_provider.layer_info(layer)
                 layer_provider.set_cache(layer_info, layer.to_gdf)
 
-                logger.info(f'Layer Cache Updated: Date: {now}')
+                logger.info(f'Layer Cache Updated {layer.name}: Date: {now}')
                 updates.append(layer.name)
             except Exception as e:
                 err_msg = 'Error updating cache {}'.format(layer.name)

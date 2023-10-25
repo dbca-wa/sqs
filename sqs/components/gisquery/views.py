@@ -150,12 +150,8 @@ class DefaultLayerProviderView(View):
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer url specified in Request'})
 
             qs_layer = self.queryset.filter(name=layer_name)
-            if qs_layer.exists():
-                cur_version = qs_layer[0].version
+            cur_version = qs_layer[0].version if qs_layer.exists() else None
             layer_info, layer_gdf = DbLayerProvider(layer_name, url).get_layer_from_geoserver()
-
-            #if layer_info.get('layer_version') > cur_version:
-        
 
         except LayerProviderException as e:
             logger.error(traceback.print_exc())
@@ -165,7 +161,7 @@ class DefaultLayerProviderView(View):
             logger.error(traceback.print_exc())
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': traceback.format_exc()})
 
-        if layer_info.get('layer_version') > cur_version:
+        if cur_version is None or layer_info.get('layer_version') > cur_version:
             layer_info['message'] = f'Layer {layer_info["layer_name"]} Updated.'
         else:
             layer_info['message'] = f'Layer {layer_info["layer_name"]} Not Updated - there is no change to layer'
