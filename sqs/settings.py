@@ -29,7 +29,7 @@ LEDGER_PASS = env('LEDGER_PASS')
 #SHOW_DEBUG_TOOLBAR = env('SHOW_DEBUG_TOOLBAR', False)
 BUILD_TAG = env('BUILD_TAG', hashlib.md5(os.urandom(32)).hexdigest())  # URL of the Dev app.js served by webpack & express
 
-REQUEST_TIMEOUT = env('REQUEST_TIMEOUT', 20) # 20 secs
+REQUEST_TIMEOUT = env('REQUEST_TIMEOUT', 300) # 20 secs
 
 CACHE_TIMEOUT_1_MINUTE = 60
 CACHE_TIMEOUT_5_MINUTES = 60 * 5
@@ -51,7 +51,9 @@ CHECK_IP = env('CHECK_IP', True)
 
 # Use 'epsg:4326' as projected coordinate system - 'epcg:4326' coordinate system is in meters (Then the buffer distance will be in meters)
 CRS = env('CRS', 'epsg:4326')
-CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:4462')
+CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
+GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
+MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
 
 LANGUAGE_CODE = 'en-AU'
 TIME_ZONE = 'Australia/Perth'

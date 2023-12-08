@@ -18,22 +18,25 @@ class Command(BaseCommand):
     help = 'Updates layer cache'
 
     def handle(self, *args, **options):
-        #import ipdb; ipdb.set_trace()
 
         errors = []
         updates = []
         now = datetime.now().astimezone(timezone(settings.TIME_ZONE))
         logger.info('Running command {}'.format(__name__))
 
-        for layer in Layer.active_layers.all():
+        layers = Layer.active_layers.all()
+        print(f'No. Layers: {layers.count()}')
+        for idx, layer in enumerate(layers):
             try:
+                logger.info(f'{idx}: Updating {layer.name} ...')
                 layer_provider = DbLayerProvider(layer.name, layer.url)
                 layer_provider.clear_cache()
 
                 layer_info = layer_provider.layer_info(layer)
-                layer_provider.set_cache(layer_info, layer.to_gdf)
+                #layer_provider.set_cache(layer_info, layer.to_gdf)
+                layer_provider.set_cache(layer_info, layer.geojson)
 
-                logger.info(f'Layer Cache Updated {layer.name}: Date: {now}')
+                logger.info(f'{idx}: Layer Cache Updated {layer.name}: Date: {now}')
                 updates.append(layer.name)
             except Exception as e:
                 err_msg = 'Error updating cache {}'.format(layer.name)

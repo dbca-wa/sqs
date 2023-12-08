@@ -18,7 +18,7 @@ import pytz
 import traceback
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog
-from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
+from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import DbLayerProvider
 
@@ -155,6 +155,8 @@ class DefaultLayerProviderView(View):
 
         except LayerProviderException as e:
             logger.error(traceback.print_exc())
+            if 'Layer exceeds max' in str(e):
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
             return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver if layer/GeoJSON exists. URL: {url}'})
 
         except Exception as e:

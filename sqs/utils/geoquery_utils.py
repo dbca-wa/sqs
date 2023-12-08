@@ -50,15 +50,11 @@ class DisturbanceLayerQueryHelper():
         self.proposal = proposal
         self.unprocessed_questions = []
         self.metrics = []
-        #self.total_query_time = 0.0
 
     def read_geojson(self, geojson):
         """ geojson is the user specified polygon, used to intersect the layers """
         try:
             mpoly = gpd.read_file(json.dumps(geojson))
-            if mpoly.crs.srs != settings.CRS:
-                # CRS = 'EPSG:4236'
-                mpoly.to_crs(settings.CRS, inplace=True)
         except Exception as e:
             raise Exception(f'Error reading geojson file: {str(e)}')
 
@@ -75,22 +71,22 @@ class DisturbanceLayerQueryHelper():
         Returns the the original polygon, perimeter increased by the buffer size
         '''
         mpoly = self.geojson
+        if 'POLYGON' not in str(mpoly):
+            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly}.')
+
         try:
             buffer_size = cddp_question['buffer']
             if buffer_size:
-                buffer_size = float(buffer_size) 
-                if mpoly.crs.srs != settings.CRS:
-                    mpoly.to_crs(settings.CRS, inplace=True)
+                crs_orig =  mpoly.crs.srs
 
                 # convert to new projection so that buffer can be added in meters
                 mpoly_cart = mpoly.to_crs(settings.CRS_CARTESIAN)
-                mpoly_cart_buffer = mpoly_cart.buffer(buffer_size)
-                mpoly_cart_buffer_gdf = gpd.GeoDataFrame(geometry=mpoly_cart_buffer)
+                mpoly_cart['geometry'] = mpoly_cart['geometry'].buffer(buffer_size)
 
                 # revert to original projection
-                mpoly_buffer = mpoly_cart_buffer_gdf.to_crs(settings.CRS)
+                mpoly_buffer = mpoly_cart.to_crs(crs_orig)
 
-                mpoly = mpoly_buffer
+                return mpoly_buffer
             
         except Exception as e:
             logger.error(f'Error adding buffer {buffer_size} to polygon for CDDP Question {cddp_question}.\n{e}')
@@ -201,24 +197,35 @@ class DisturbanceLayerQueryHelper():
                     value = cddp_question['value']
 
         #            if cddp_question['question']=='1.0 Proposal title':
-        #                #import ipdb; ipdb.set_trace()
         #                pass
 
                     how = self.overlay_how(how) # ['interesection', 'difference']
 
                     mpoly = self.add_buffer(cddp_question)
-                    if how == 'intersection':
-                        overlay_gdf = layer_gdf.overlay(mpoly, how=how)
-                    else:
-                        # the in-built geopandas 'difference' and 'symmetric_difference' does not work as expected,
-                        # when polygon crosses multiple layer boundaries. Therefore improvising with the below 'NOT (~)' operator.
-                        # 'overlay_gdf' GeoDataFrame will contain all the rows from layer_gdf that DO NOT intersect with the elements of mpoly.
-                        overlay_gdf = layer_gdf.loc[~layer_gdf.intersects(mpoly.unary_union)].reset_index(drop=True)
+                    if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
+                        mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
+
+                    # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetetric_difference' we will
+                    # compute 'intersection' and filter the intersected features from the layer_gdf.
+                    # That is, fo both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
+                    overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
+
+#                    # filter layer intersections with very low area/boundary_length ratios
+#                    overlay_cart_gdf = overlay_gdf.to_crs(settings.CRS_CARTESIAN)
+#                    overlay_cart_gdf = overlay_cart_gdf[[(overlay_cart_gdf.area/overlay_cart_gdf.length > settings.GEOM_AREA_LENGTH_FILTER) & ((overlay_cart_gdf.area/overlay_cart_gdf.length).isna())]]
+#                    overlay_gdf = overlay_cart_gdf.to_crs(layer_gdf.crs.srs)
 
                     if column_name not in overlay_gdf.columns:
                         _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
                         error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
                         logger.error(error_msg)
+
+                    if how == 'intersection':
+                        # already computed above
+                        pass
+                    else:
+                        # equivalent to 'symmetrical difference', but re-introducing very low area/boundary_length ratios, features which would otherwise be omitted
+                        overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
 
                     # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                     op = DefaultOperator(cddp_question, overlay_gdf, widget_type)
@@ -529,73 +536,6 @@ class DisturbanceLayerQueryHelper():
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
         return response
-
-class LayerQuerySingleHelper():
-
-    def __init__(self, question, widget_type, cddp_info, geojson):
-        self.question = question
-        self.widget_type = widget_type
-        self.cddp_info = cddp_info
-        self.geojson = self.read_geojson(geojson)
-
-    def read_geojson(self, geojson):
-        """ geojson is the use specified polygon, used to intersect the layers """
-        mpoly = gpd.read_file(json.dumps(geojson))
-        if mpoly.crs.srs != settings.CRS:
-            # CRS = 'EPSG:4236'
-            mpoly.to_crs(settings.CRS, inplace=True)
-
-        return mpoly
-
-    def spatial_join(self):
-
-        response = [] 
-        response2 = {} 
-        proponent_single = []
-        assessor_single = []
-        #now = datetime.now().date()
-        today = datetime.now(pytz.timezone(settings.TIME_ZONE))
-
-        for data in self.cddp_info:
-            layer_name = data['layer']['layer_name']
-
-            column_name = data['column_name']
-            operator = data['operator']
-            how = data['how']
-            expiry = datetime.strptime(data['expiry'], DATE_FMT).date() if data['expiry'] else None
-            
-            layer = Layer.objects.get(name=layer_name)
-            layer_gdf = layer.to_gdf
-            if layer_gdf.crs.srs != settings.CRS:
-                layer_gdf.to_crs(settings.CRS, inplace=True)
-    
-            how = self.overlay_how(how) # ['interesection', 'difference']
-
-
-            # add buffer to user polygon
-
-            overlay_res = layer_gdf.overlay(self.geojson, how=how)
-            try:
-                res = overlay_res[column_name].values
-            except KeyError as e:
-                _list = HelperUtils.pop_list(overlay_res.columns.to_list())
-                logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
-                continue
-
-            # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-            ret = operator_result(data, res)
-
-            proponent_single.append(proponent_answer(data, self.widget_type, ret))
-            assessor_single.append(assessor_answer(data, self.widget_type, ret))
-
-        response2 =   dict(
-            question=self.question,
-            widget_type=self.widget_type,
-            proponent_answer=proponent_single,
-            assessor_answer=assessor_single,
-        )
-
-        return response2
 
 
 class PointQueryHelper():

@@ -91,7 +91,8 @@ class Layer(RevisionedMixin):
     def to_gdf(self):
         ''' Layer to Geo Dataframe (converted to settings.CRS ['epsg:4326']) '''
         gdf = gpd.read_file(json.dumps(self.geojson))
-        return gdf.to_crs(settings.CRS)
+        #gdf.to_crs(settings.CRS, inplace=True)
+        return gdf
 
     def get_obj_version_ids(self):
         ''' lists all versions for current layer '''
