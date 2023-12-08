@@ -139,54 +139,70 @@ class DefaultOperator():
     def proponent_answer(self):
         """ Answer to be prefilled for proponent
         """
-        proponent_text_str = ''
-        visible_to_proponent = self.cddp_question.get('visible_to_proponent', False)
-        proponent_items = self.cddp_question.get('proponent_items')
+        try:
+            proponent_text_str = ''
+            visible_to_proponent = self.cddp_question.get('visible_to_proponent', False)
+            proponent_items = self.cddp_question.get('proponent_items')
 
-        if visible_to_proponent and self.widget_type in TEXT_WIDGETS:
-            proponent_answer = []
-            for item in proponent_items:
-                prefix = ''
-                answer = ''
-                if 'prefix' in item:
-                    prefix = item["prefix"]
-         
-                if 'answer' in item:
-                    column_name = item['answer'].strip()
-                    proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                    #answer = f'{prefix} {item["answer"]}'
-                    answer = f'{prefix} {proponent_text}'
-         
-                proponent_answer.append(answer.strip())
-            proponent_text_str = '\n'.join(proponent_answer)
+            if visible_to_proponent and self.widget_type in TEXT_WIDGETS:
+                proponent_answer = []
+                for item in proponent_items:
+                    prefix = ''
+                    answer = ''
+                    if 'prefix' in item:
+                        prefix = item["prefix"]
+             
+                    if 'answer' in item:
+                        column_name = item['answer'].strip()
+                        try:
+                            proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+                        except Exception as oe:
+                            logger.warn(f'{oe}')
+                            proponent_text = str(set(self._get_overlay_result(column_name)))
 
-        else:
-            prefix_answers = '\n'.join( [item['prefix'] for item in proponent_items if 'prefix' in item and item['prefix']] )
-            return prefix_answers.strip()
+                        #answer = f'{prefix} {item["answer"]}'
+                        answer = f'{prefix} {proponent_text}'
+             
+                    proponent_answer.append(answer.strip())
+                proponent_text_str = '\n'.join(proponent_answer)
+
+            else:
+                prefix_answers = '\n'.join( [item['prefix'] for item in proponent_items if 'prefix' in item and item['prefix']] )
+                return prefix_answers.strip()
+        except Exception as e:
+            logger.error(f'{e}')
 
         return proponent_text_str
         
     def assessor_answer(self):
         """ Answer to be prefilled for assessor
         """
-        assessor_text_str = ''
-        assessor_items = self.cddp_question.get('assessor_items')
+        try:
+            assessor_text_str = ''
+            assessor_items = self.cddp_question.get('assessor_items')
 
-        assessor_info = []
-        for item in assessor_items:
-            prefix = ''
-            info = ''
-            if 'prefix' in item:
-                prefix = item["prefix"]
-     
-            if 'info' in item:
-                column_name = item['info'].strip()
-                assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                #info = f'{prefix} {item["info"]}'
-                info = f'{prefix} {assessor_text}'
-     
-            assessor_info.append(info.strip())
-        assessor_text_str = '\n'.join(assessor_info)
+            assessor_info = []
+            for item in assessor_items:
+                prefix = ''
+                info = ''
+                if 'prefix' in item:
+                    prefix = item["prefix"]
+         
+                if 'info' in item:
+                    column_name = item['info'].strip()
+                    try:
+                        assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+                    except Exception as oe:
+                        logger.warn(f'{oe}')
+                        assessor_text = str(set(self._get_overlay_result(column_name)))
+
+                    #info = f'{prefix} {item["info"]}'
+                    info = f'{prefix} {assessor_text}'
+         
+                assessor_info.append(info.strip())
+            assessor_text_str = '\n'.join(assessor_info)
+        except Exception as e:
+            logger.error(f'{e}')
 
         return assessor_text_str
 

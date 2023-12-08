@@ -18,7 +18,6 @@ class Command(BaseCommand):
     help = 'Updates the active layers - get the active layers from GeoServer and if changed update SQS'
 
     def handle(self, *args, **options):
-        #import ipdb; ipdb.set_trace()
         errors = []
         updates = []
         now = datetime.now().astimezone(timezone(settings.TIME_ZONE))
@@ -34,7 +33,8 @@ class Command(BaseCommand):
                     layer_provider.clear_cache()
 
                     layer_info = layer_provider._layer_info(layer)
-                    layer_provider.set_cache(layer_info, layer.to_gdf)
+                    #layer_provider.set_cache(layer_info, layer.to_gdf)
+                    layer_provider.set_cache(layer_info, layer.geojson)
 
                     url_text = f'NEW URL: {new_layer.url}' if layer.url != new_layer.url else f'URL: {layer.url}'
                     logger.info(f'Layer Updated: {new_layer.name}, Modified Date: {new_layer.modified_date}, Version: {new_layer.version}\n{url_text}\n{"_"*125}')

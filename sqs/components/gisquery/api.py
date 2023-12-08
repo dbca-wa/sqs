@@ -18,7 +18,7 @@ import json
 from datetime import datetime
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog
-from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, LayerQuerySingleHelper, PointQueryHelper
+from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.loader_utils import LayerLoader, DbLayerProvider
 from sqs.components.gisquery.serializers import (
     #DisturbanceLayerSerializer,
@@ -94,16 +94,17 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         layer_name = kwargs.get('pk')
 
         # get from cache, if exists. Otherwise get from DB, if exists
-        layer_info, layer_gdf = DbLayerProvider(layer_name=layer_name, url='').get_layer(from_geoserver=False)
+        layer_provider = DbLayerProvider(layer_name=layer_name, url='')
+        layer_info, layer_gdf = layer_provider.get_layer(from_geoserver=False)
 
         if layer_gdf is None:
             return  JsonResponse(
                 status=status.HTTP_400_BAD_REQUEST, 
-                #data={'errors': f'Layer Name {layer_name} Not Found. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
                 data={'errors': f'Layer Name {layer_name} Not Found'}
             )
 
-        return Response(json.loads(layer_gdf.to_json()))
+        #return Response(json.loads(layer_gdf.to_json()))
+        return Response(layer_provider.layer_geojson)
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler

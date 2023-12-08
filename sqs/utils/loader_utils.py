@@ -9,6 +9,7 @@ import geopandas as gpd
 import requests
 import json
 import os
+import sys
 
 from sqs.components.gisquery.models import Layer
 from sqs.exceptions import LayerProviderException
@@ -42,6 +43,10 @@ class LayerLoader():
             if res.status_code != HTTP_200_OK:
                 res = requests.get('{}'.format(self.url), verify=None, timeout=settings.REQUEST_TIMEOUT)
 
+            layer_size = round(sys.getsizeof(json.dumps(res.json()))/1024**2, 2)
+            if layer_size > settings.MAX_GEOJSON_SIZE:
+                raise LayerProviderException(f'Layer exceeds max size ({settings.MAX_GEOJSON_SIZE}MB). Layer Size: {layer_size}MB', code='api_layer_retrieve_error' )
+
             res.raise_for_status()
             return res.json()
         except Exception as e:
@@ -73,9 +78,6 @@ class LayerLoader():
                 geojson = self.retrieve_layer()
 
             layer_gdf1 = gpd.read_file(json.dumps(geojson))
-
-            # uniformly projected layers in DB (allows buffer in meters by default)
-            layer_gdf1.to_crs(settings.CRS, inplace=True) 
 
             qs_layer = Layer.objects.filter(name=self.name)
             with transaction.atomic():
@@ -157,6 +159,7 @@ class DbLayerProvider():
         self.layer_name = layer_name
         self.url = url
         self.layer_cached = False
+        self.layer_geojson = None
 
     def get_layer(self, from_geoserver=True):
         '''
@@ -199,7 +202,8 @@ class DbLayerProvider():
                 layer = loader.load_layer(filename)
                 layer_gdf = layer.to_gdf
                 layer_info = self.layer_info(layer)
-                self.set_cache(layer_info, layer_gdf)
+                #self.set_cache(layer_info, layer_gdf)
+                self.set_cache(layer_info, layer.geojson)
 
         except Exception as e:
             err_msg = f'Error getting layer from file {self.layer_name} from:\n{filename}\n{str(e)}'
@@ -217,7 +221,8 @@ class DbLayerProvider():
             layer = loader.load_layer()
             layer_gdf = layer.to_gdf
             layer_info = self.layer_info(layer)
-            self.set_cache(layer_info, layer_gdf)
+            #self.set_cache(layer_info, layer_gdf)
+            self.set_cache(layer_info, layer.geojson)
 
         except Exception as e:
             err_msg = f'Error getting layer from GeoServer {self.layer_name} from:\n{self.url}\n{str(e)}'
@@ -235,11 +240,10 @@ class DbLayerProvider():
         try:
             layer = Layer.objects.get(name=self.layer_name)
             layer_gdf = layer.to_gdf
-            if layer_gdf.crs.srs != settings.CRS:
-                layer_gdf.to_crs(settings.CRS, inplace=True)
 
             layer_info = self.layer_info(layer)
-            self.set_cache(layer_info, layer_gdf)
+            #self.set_cache(layer_info, layer_gdf)
+            self.set_cache(layer_info, layer.geojson)
 
         except Exception as e:
             err_msg = f'Error getting layer {self.layer_name} from DB\n{str(e)}'
@@ -250,12 +254,14 @@ class DbLayerProvider():
 
     def get_from_cache(self):
         '''
-        Get Layer Objects from cache if exists, otherwise get from DB and set the cache
+        Get GeoJSON from cache if exists then creates a gdf form the GeoJSON
         '''
         # try to get from cached 
-        layer_gdf = cache.get(self.LAYER_CACHE.format(self.layer_name))
+        #layer_gdf = cache.get(self.LAYER_CACHE.format(self.layer_name))
+        self.layer_geojson = cache.get(self.LAYER_CACHE.format(self.layer_name))
         layer_info = cache.get(self.LAYER_DETAILS_CACHE.format(self.layer_name))
 
+        layer_gdf = gpd.read_file(json.dumps(self.layer_geojson)) if self.layer_geojson else None 
         self.layer_cached = True if layer_gdf is not None else False
         return layer_info, layer_gdf
 
@@ -264,9 +270,9 @@ class DbLayerProvider():
         cache.delete(self.LAYER_CACHE.format(self.layer_name))
         cache.delete(self.LAYER_DETAILS_CACHE.format(self.layer_name))
 
-    def set_cache(self, layer_info, layer_gdf):
+    def set_cache(self, layer_info, layer_geojson):
         # set the cache 
-        cache.set(self.LAYER_CACHE.format(self.layer_name), layer_gdf, settings.CACHE_TIMEOUT)
+        cache.set(self.LAYER_CACHE.format(self.layer_name), layer_geojson, settings.CACHE_TIMEOUT)
         cache.set(self.LAYER_DETAILS_CACHE.format(self.layer_name), layer_info, settings.CACHE_TIMEOUT)
 
     def layer_info(self, layer):
@@ -277,4 +283,30 @@ class DbLayerProvider():
             layer_modified_date=layer.modified_date.strftime(DATETIME_FMT),
         )
 
+    def layer_size(self):
+        ''' Returns the GeoJSON size in MB '''
+        return round(sys.getsizeof(json.dumps(self.layer_geojson))/1024**2, 2)
 
+
+
+def get_layer_size(layers=None):
+    ''' Prints Cached Layer Sizes in MB 
+
+        from sqs.utils.loader_utils import get_layer_size
+        get_layer_size()
+        get_layer_size(['CPT_DBCA_LEGISLATED_TENURE'])
+    '''
+    l= []
+    if layers is None:
+        layers = list(Layer.objects.all().values_list('name', flat=True))
+
+    for layer in layers:
+        provider = DbLayerProvider(layer, '')
+        layer_info, layer_gdf = provider.get_layer()
+        if layer_info:
+            # layer is from cache
+            size = provider.layer_size()
+            l.append(dict(layer_name=layer, size=size))
+    
+    for item in l:
+        print(f'{item["size"]}\t{item["layer_name"]}')
