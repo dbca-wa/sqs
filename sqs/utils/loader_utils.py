@@ -167,18 +167,19 @@ class DbLayerProvider():
         '''
         try:
             # try getting from cache
+            logger.info(f'Retrieving Layer {self.layer_name} ...')
             layer_info, layer_gdf = self.get_from_cache()
             if layer_gdf is not None:
-                logger.info(f'Getting layer from cache {self.layer_name} from:\n{self.url}')
+                logger.info(f'Layer retrieved from cache {self.layer_name}')
             else:
                 if Layer.active_layers.filter(name=self.layer_name).exists():
                     # try getting from DB
                     layer_info, layer_gdf = self.get_from_db()
-                    logger.info(f'Getting layer from DB {self.layer_name} from:\n{self.url}')
+                    logger.info(f'Layer retrieved from DB {self.layer_name}')
                 elif from_geoserver:
                         # Get from Geoserver, store in DB and set in cache
                         layer_info, layer_gdf = self.get_layer_from_geoserver()
-                        logger.info(f'Getting layer from GeoServer {self.layer_name} from:\n{self.url}')
+                        logger.info(f'Layer retrieved from GeoServer {self.layer_name} - from:\n{self.url}')
 
         except Exception as e:
             err_msg = f'Error getting layer {self.layer_name} from:\n{self.url}\n{str(e)}'

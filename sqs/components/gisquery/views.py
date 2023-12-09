@@ -107,9 +107,11 @@ class DisturbanceLayerView(View):
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
       
             request_log.response = response
+            total_time = round(time.time() - start_time, 3)
             request_log.response.update({
                 'metrics': dict(
-                    total_query_time=round(time.time() - start_time, 3),
+                    #total_query_time=round(time.time() - start_time, 3),
+                    total_query_time=total_time,
                     #total_query_time=round(dlq.lq_helper.total_query_time, 3),
                     spatial_query=dlq.lq_helper.metrics,
                 )
@@ -125,6 +127,7 @@ class DisturbanceLayerView(View):
             return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': str(e)})
 
         cache.delete(cache_key)
+        logger.info(f'Propodal ID {proposal["id"]}: Total Time: {total_time} secs')
         return JsonResponse(response)
 
 
