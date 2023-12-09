@@ -129,9 +129,51 @@ class DisturbanceLayerQueryHelper():
         Return the entire question group. 
         For example, given a radiobutton or checkbox question, return the all question/answer combinations for that question
         """
+
+#        def reorder_mlq():
+#            ''' Reorders the masterlist_questions in the question_group, sorting layer_names '''
+#            ordered_question_group = []
+#            ordered_multiple_question_group = []
+#    
+#            mlq_unique_layers = list(set([question_group['questions'][0]['layer']['layer_name'] for question_group in self.masterlist_questions]))
+#            for unique_layer_name in mlq_unique_layers:
+#                for question_group in self.masterlist_questions:
+#                    #for question in question_group['questions']:
+#                    first_question = question_group['questions'][0]
+#                    layer_name = first_question['layer']['layer_name']
+#                    if layer_name == unique_layer_name:
+#                        if len(question_group['questions']) == 1:
+#                            ordered_question_group.append(question_group)
+#                        else:
+#                            ordered_multiple_question_group.append(question_group)
+#    
+#            return ordered_question_group + ordered_multiple_question_group
+
+        def reorder_question_group():
+            ''' Reorders the questions in the question_group , sorting layer_names. Sort Nested Multiples Questions by layer_name'''
+            ordered_question_group = dict(question_group=question_group['question_group'])
+            ordered_questions = []
+            for unique_layer_name in unique_layers:
+                for question in question_group['questions']:
+                    layer_name = question['layer']['layer_name']
+                    if layer_name == unique_layer_name:
+                        ordered_questions.append(question)
+            ordered_question_group.update(dict(questions=ordered_questions))
+            return ordered_question_group
+
         try:
+            #reordered_masterlist_questions = reorder_mlq()
+            #for question_group in reordered_masterlist_questions:
+            #for question_group in reordered_masterlist_questions:
+            #    print(len(question_group['questions']), question_group['questions'][0]['layer']['layer_name'], question_group['question_group'][:30])
+
+            #for question_group in reordered_masterlist_questions:
             for question_group in self.masterlist_questions:
                 if question_group['question_group'] == question:
+                    #return question_group
+                    unique_layers = list(set([question['layer']['layer_name'] for question in question_group['questions']]))
+                    if len(unique_layers) > 1:
+                        return reorder_question_group()
                     return question_group
 
         except Exception as e:
@@ -172,6 +214,7 @@ class DisturbanceLayerQueryHelper():
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
             response = []
+            layer_info = {}
             expired = False
 
             grouped_questions = self.get_grouped_questions(question)
@@ -183,12 +226,22 @@ class DisturbanceLayerQueryHelper():
 
                 question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
                 if question_expiry is None or question_expiry >= today.date():
-      
+                 
                     start_time_retrieve_layer = time.time()
                     layer_name = cddp_question['layer']['layer_name']
                     layer_url = cddp_question['layer']['layer_url']
-                    layer_provider = DbLayerProvider(layer_name, url=layer_url)
-                    layer_info, layer_gdf = layer_provider.get_layer()
+
+                    answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
+                    logger.info('---------------------------------------------------------------------------------------------')
+                    logger.info(f'Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("question")[:25]}\' {answer_str} ...')
+      
+                    if layer_name != layer_info.get('layer_name'):
+                        # layer name not available in memory - retrieve/re-retrieve
+                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
+                        layer_info, layer_gdf = layer_provider.get_layer()
+                    else:
+                        logger.info(f'Layer {layer_name} already in memory ...')
+
                     time_retrieve_layer = time.time() - start_time_retrieve_layer
 
                     how = cddp_question['how']
@@ -230,6 +283,7 @@ class DisturbanceLayerQueryHelper():
                     # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                     op = DefaultOperator(cddp_question, overlay_gdf, widget_type)
                     operator_result = op.operator_result()
+                    logger.info(f'Operator Result: {operator_result}')
                     condition = f'{column_name} -- {operator}'
                     if operator != 'IsNotNull':
                         condition += f' -- {value}'
@@ -253,6 +307,7 @@ class DisturbanceLayerQueryHelper():
                     expired = True
 
                 self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
+                logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
 
         except Exception as e: 
             logger.error(e)
@@ -269,7 +324,7 @@ class DisturbanceLayerQueryHelper():
             processed_questions = self.spatial_join_gbq(question, widget_type)
         except Exception as e:
             logger.error(traceback.print_exc())
-            logger.error(f'Error Searching Question comination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
+            logger.error(f'Error Searching Question combination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
 
         return processed_questions
 
