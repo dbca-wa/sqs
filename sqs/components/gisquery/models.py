@@ -11,8 +11,8 @@ from reversion.models import Version
 import geopandas as gpd
 import json
 
-from datetime import datetime
-from pytz import timezone
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 from sqs.utils import HelperUtils, DATETIME_FMT
 
@@ -140,7 +140,7 @@ class LayerRequestLog(models.Model):
     system = models.CharField('Application name', max_length=64)
     app_id = models.SmallIntegerField('Application ID')
     data = JSONField('Request query from external system')
-    response = JSONField('Response from SQS', default=[{}])
+    response = JSONField('Response from SQS', default=dict)
     when = models.DateTimeField(auto_now_add=True, null=False, blank=False)
 
     @classmethod
@@ -198,70 +198,97 @@ class LayerRequestLog(models.Model):
     def __str__(self):
         return f'{self.system}|{self.app_id}|{self.when.strftime(DATETIME_FMT)}'
 
-    
     class Meta:
         app_label = 'sqs'
         ordering = ('-when',)
 
 
-#class LayerRequestLog(models.Model):
-#    layer_name = models.CharField(max_length=64)
-#    system = models.CharField('Application name', max_length=64)
-#    #when = models.DateTimeField(auto_now_add=True, null=False, blank=False)
-#    when = models.DateTimeField()
-#
-#    @classmethod
-#    def create_log(self, system, masterlist_questions):
-#        now = datetime.now().astimezone(timezone(settings.TIME_ZONE))
-#
-#        bulk_list = []
-#        layer_names = HelperUtils.get_layer_names(masterlist_questions)
-#        for layer_name in layer_names:
-#            bulk_list.append(
-#                LayerRequestLog(layer_name=layer_name, system=system, when=now)
-#            )
-#        bulk_objs = LayerRequestLog.objects.bulk_create(bulk_list) 
-#        return bulk_objs
-#
-#    def request_history(self, system, last=5, show_layers=False):
-#        '''
-#        Get history of layers requested from external systems
-#        '''
-#
-#        if show_layers:
-#            request_list = list(
-#                LayerRequestLog.objects.filter(system='DAS').values('system','when').annotate(
-#                    num_layers=Count('when'), 
-#                    layer_list=ArrayAgg('layer_name'),
-#                ).order_by('-when')[:last]
-#            )
-#
-#            for record in request_list:
-#                layers_in_request = record['layer_list']
-#                cur_layers_in_sqs = list(Layer.active_layers.filter(name__in=layers_in_request).values_list('name', flat=True))
-#                new_layers = list(set(cur_layers_in_sqs).symmetric_difference(set(layers_in_request)))
-#                record.update(dict(new_layers=new_layers))
-#        else:
-#            request_list = list(
-#                LayerRequestLog.objects.filter(system='DAS').values('system','when').annotate(
-#                    num_layers=Count('when'), 
-#                ).order_by('-when')[:last]
-#            )
-#
-#        return request_list
-#
-#    def __str__(self):
-#        return f'{self.layer_name}|{self.system}|{self.when.strftime(DATETIME_FMT)}'
-#
-#    
-#    class Meta:
-#        app_label = 'sqs'
-#        ordering = ('-when',)
+class ActiveQueueManager(models.Manager):
+    ''' filter queued tasks and omit old (stale) queued tasks '''
+    def get_queryset(self):
+        earliest_date = (datetime.now() - timedelta(days=7)).replace(tzinfo=timezone.utc)
+        return super().get_queryset().filter(status=Task.STATUS_CREATED, created__gte=earliest_date)
 
-  
+
+class Task(RevisionedMixin):
+
+    PRIORITY_HIGH = 1
+    PRIORITY_NORMAL = 2
+    PRIORITY_LOW = 3
+    PRIORITY_CHOICES = (
+	(PRIORITY_HIGH,   'High'),
+	(PRIORITY_NORMAL, 'Normal'),
+	(PRIORITY_LOW,    'Low'),
+    )
+
+    STATUS_FAILED = 'failed'
+    STATUS_CREATED = 'created'
+    STATUS_RUNNING = 'running'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_ERROR = 'error'
+    STATUS_CHOICES = (
+	(STATUS_FAILED,    'Failed'),
+	(STATUS_CREATED,   'Created'),
+	(STATUS_RUNNING,   'Running'),
+	(STATUS_COMPLETED, 'Completed'),
+	(STATUS_CANCELLED, 'Cancelled'),
+	(STATUS_ERROR,     'Error'),
+    )
+
+    app_id      = models.PositiveIntegerField('Application ID')
+    system      = models.CharField('System/Application name', max_length=100)
+    requester   = models.CharField('Prefill Request User', max_length=100)
+    script      = models.TextField('Script - Dict (script name)')
+    data        = JSONField('Request query from external system')
+    description = models.TextField('Task Description', null=True, blank=True)
+    parameters  = models.TextField('Script Parameters - Dict (script params_list)', null=True, blank=True)
+    status      = models.CharField('Task Status', choices=STATUS_CHOICES, default=STATUS_CREATED, max_length=12)
+    priority    = models.PositiveSmallIntegerField('Task Priority', choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL)
+    start_time    = models.DateTimeField(null=True, blank=True)
+    end_time    = models.DateTimeField(null=True, blank=True)
+    stdout      = models.TextField(null=True, blank=True)
+    stderr      = models.TextField(null=True, blank=True)
+    request_log = models.OneToOneField(LayerRequestLog, on_delete=models.CASCADE, related_name='request_log', null=True, blank=True)
+    created     = models.DateTimeField(default=timezone.now, editable=False) # jm: needed for ordering queue
+
+    objects = models.Manager()
+    queued_jobs = ActiveQueueManager()
+
+    class Meta:
+        app_label = 'sqs'
+        #ordering = ('created_date',)
+
+    def __str__(self):
+        return f'{self.id} {self.system}_{self.app_id}'
+
+    @property
+    def queue(self):
+        """ Returns the ordered task queue """
+        return Task.objects.filter(status=self.STATUS_CREATED).order_by('priority', 'created')
+        #return Task.queued_jobs.all().order_by('priority', 'id')
+
+    def next(self):
+        """ Returns the next task in the queue """
+        return self.queue.first()
+
+    @property
+    def position(self):
+        """ Returns the position in the queue """
+        return self.queue.filter(created__lte=self.created).count()
+
+ 
+    def time_taken(self):
+        """ Returns task duration in mins """
+        if self.start_time and self.end_time:
+            return round((self.end_time - self.start_time).total_seconds()/60., 2)
+        return None
+
+
 import reversion
 #reversion.register(Layer, follow=['access_logs'])
 reversion.register(Layer, follow=[])
 reversion.register(LayerRequestLog)
+reversion.register(Task)
 
 

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from sqs.components.gisquery.models import Layer, LayerRequestLog
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 
 @admin.register(Layer)
 class LayerAdmin(admin.ModelAdmin):
@@ -21,4 +21,19 @@ class LayerRequestLogAdmin(admin.ModelAdmin):
     search_fields = ['system', 'app_id', 'when']
 
 
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ['description', 'script', 'status', 'priority', 'position']
+    search_fields = ['description', 'script', 'status', 'priority']
+    readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'parameters', 'created_date', 'data')
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter().order_by('-created')
+
+    def time_taken(self, obj):
+        return obj.time_taken()
+
+    def position(self, obj):
+        return obj.position
 

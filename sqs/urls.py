@@ -24,7 +24,9 @@ router = routers.DefaultRouter()
 router.register(r'layers', gisquery_api.DefaultLayerViewSet, basename='layers')
 router.register(r'logs', gisquery_api.LayerRequestLogViewSet, basename='logs')
 router.register(r'point_query', gisquery_api.PointQueryViewSet, basename='point_query')
+router.register(r'tasks', gisquery_api.TaskViewSet, basename='tasks')
 #router.register(r'das', gisquery_api.DisturbanceLayerViewSet, basename='das')
+router.register(r'task_paginated', gisquery_api.TaskPaginatedViewSet, basename='task_paginated')
 
 api_patterns = [
     url(r'^api/v1/',include(router.urls)),
@@ -37,7 +39,8 @@ urlpatterns = [
     url(r'', include(api_patterns)),
     url(r'^$', TemplateView.as_view(template_name='sqs/base2.html'), name='home'),
 
-    url(r'api/v1/das', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das'),
+    url(r'api/v1/das/task_queue', csrf_exempt(gisquery_views.DisturbanceLayerQueueView.as_view()), name='das_task_queue'),
+    url(r'api/v1/das/spatial_query', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das_spatial_query'),
     url(r'api/v1/add_layer', csrf_exempt(gisquery_views.DefaultLayerProviderView.as_view()), name='add_layer'),
     #url(r'api/v1/point_query', csrf_exempt(gisquery_views.PointQueryLayerView.as_view()), name='point_query'),
     #url(r'api/v1/check_layer', csrf_exempt(gisquery_views.CheckLayerView.as_view()), name='check_layer'),

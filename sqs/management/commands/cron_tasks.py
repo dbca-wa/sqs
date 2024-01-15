@@ -21,6 +21,7 @@ class Command(BaseCommand):
         subprocess.call('cat /dev/null > {}'.format(LOGFILE), shell=True)  # empty the log file
 
         logger.info('Running command {}'.format(__name__))
+        subprocess.call('python manage.py clear_old_tasks' + stdout_redirect, shell=True) 
         subprocess.call('python manage.py update_active_layers' + stdout_redirect, shell=True) 
         #subprocess.call('python manage.py update_cache' + stdout_redirect, shell=True) 
 
