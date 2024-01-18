@@ -87,12 +87,14 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     def geojson(self, request, *args, **kwargs):            
         """ 
         http://localhost:8002/api/v1/layers/informal_reservess/geojson.json
+        http://localhost:8002/api/v1/layers/informal_reservess/geojson.json?num_features=5
 
         # List all layers available on SQS
         http://localhost:8002/api/v1/layers/
         """
         self.serializer_class = GeoJSONLayerSerializer
         layer_name = kwargs.get('pk')
+        num_features = int(request.GET.get('num_features', 3))
 
         # get from cache, if exists. Otherwise get from DB, if exists
         layer_provider = DbLayerProvider(layer_name=layer_name, url='')
@@ -104,8 +106,15 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
                 data={'errors': f'Layer Name {layer_name} Not Found'}
             )
 
+        geojson_truncated = json.loads(layer_gdf[:num_features].to_json())
+        add_features_to_geojson = {
+            'totalFeatures': len(layer_gdf),
+            'truncatedFeatures': num_features,
+        }
+        add_features_to_geojson.update(geojson_truncated)
         #return Response(json.loads(layer_gdf.to_json()))
-        return Response(layer_provider.layer_geojson)
+        #return Response(layer_provider.layer_geojson)
+        return JsonResponse(add_features_to_geojson)
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -269,7 +278,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     @traceback_exception_handler
     def request_data(self, request, *args, **kwargs):            
         """
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?system=das
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das ('full'/'partial'/'single')
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das&when=True
 
@@ -294,10 +303,12 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     @traceback_exception_handler
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbcachema,wa.gov.au/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json             (last request log ID)
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=FULL ('full'/'partial'/'single')
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?metrics=true
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?metrics=true      (Metrics Only)
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all               (Include Payload Data - Geojson, Masterlist Questions etc)
+
+            http://localhost:8002/api/v1/logs/1780/request_data/?system=das              (Request log by Proposal ID and System)
         """
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
@@ -354,7 +365,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 #            https://sqs-dev.dbca.wa.gov.au/api/v1/tasks/
 #            https://sqs-dev.dbca.wa.gov.au/api/v1/tasks?records=5
 #        """
-#        #import ipdb; ipdb.set_trace()
 #        records = self.request.GET.get('records', 20)
 #        queryset = self.queryset.all().order_by('-pk')[:int(records)]
 #        serializer = self.get_serializer(queryset, many=True) #, remove_fields=['data', 'response'])
@@ -366,7 +376,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11
             http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11&all
         """
-        #import ipdb; ipdb.set_trace()
         all_fields = True if 'all' in request.GET else False
         task_ids = [task_id.strip() for task_id in request.GET['task_ids'].split(',')]
         qs = Task.objects.filter(id__in=task_ids)
