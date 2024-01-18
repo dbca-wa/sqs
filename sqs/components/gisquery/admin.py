@@ -39,10 +39,10 @@ class LayerRequestLogAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['description', 'script', 'task_status', 'priority', 'position', 'link_to_request_log_api']
-    list_filter = ["status", "priority"]
+    list_display = ['id', 'system', 'app_id', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api']
+    list_filter = ["status", "priority", "system"]
     search_fields = ['description', 'script', 'status', 'priority']
-    readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'parameters', 'created_date') #, 'data')
+    readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'created_date') #, 'data')
     exclude = ['data', 'request_log']
 
     def get_queryset(self, request):
@@ -72,5 +72,11 @@ class TaskAdmin(admin.ModelAdmin):
             return mark_safe(f'<a href="/admin/sqs/layerrequestlog/{obj.request_log.id}/change/" target="_blank">{obj.status}</a>' )
         return obj.status
     task_status.allow_tags=True
+
+    def script_name(self, obj):
+        """ concatenates script name and script parameters """
+        params = obj.parameters if obj.parameters else ''
+        return f'{obj.script} {params}'
+    script_name.allow_tags=True
 
 
