@@ -61,13 +61,22 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-
-if env('CONSOLE_EMAIL_BACKEND', False):
-   EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
+# Custom Email Settings
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend' if env('CONSOLE_EMAIL_BACKEND', False) else 'sqs.backend_email.SqsEmailBackend'
+PRODUCTION_EMAIL = env('PRODUCTION_EMAIL', False)
+# Intercept and forward email recipient for non-production instances
+# Send to list of NON_PROD_EMAIL users instead
+EMAIL_INSTANCE = env('EMAIL_INSTANCE','PROD')
+NON_PROD_EMAIL = env('NON_PROD_EMAIL')
+if not PRODUCTION_EMAIL:
+    if not NON_PROD_EMAIL:
+        raise ImproperlyConfigured('NON_PROD_EMAIL must not be empty if PRODUCTION_EMAIL is set to False')
+    if EMAIL_INSTANCE not in ['PROD','DEV','TEST','UAT']:
+        raise ImproperlyConfigured('EMAIL_INSTANCE must be either "PROD","DEV","TEST","UAT"')
+    if EMAIL_INSTANCE == 'PROD':
+        raise ImproperlyConfigured('EMAIL_INSTANCE cannot be \'PROD\' if PRODUCTION_EMAIL is set to False')
 
 STATIC_URL = '/static/'
-
 
 #INSTALLED_APPS += [
 INSTALLED_APPS = [
@@ -91,6 +100,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_gis',
     'rest_framework_swagger',
+    'appmonitor_client',
 ]
 
 ADD_REVERSION_ADMIN=True
@@ -212,9 +222,9 @@ DATABASES = {
     'default': database.config(),
 }
 
-#CRON_CLASSES = [
-#    'sqs.cron.OracleIntegrationCronJob',
-#]
+CRON_CLASSES = [
+    'appmonitor_client.cron.CronJobAppMonitorClient',
+]
 
 BASE_URL=env('BASE_URL')
 
@@ -243,7 +253,7 @@ LOGGING = {
     },
     'loggers': {
         '': {
-            'handlers': ['file', 'console'],
+            'handlers': ['console'],
             'level': env('LOG_CONSOLE_LEVEL', 'WARNING'),
             'propagate': True
         },
@@ -252,10 +262,10 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'log': {
-            'handlers': ['file'],
-            'level': 'INFO'
-        },
+#        'log': {
+#            'handlers': ['console'],
+#            'level': 'INFO'
+#        },
         'sqs': {
             'handlers': ['file'],
             'level': 'INFO'

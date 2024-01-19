@@ -300,6 +300,7 @@ class DisturbanceLayerQueryHelper():
                             operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
                             proponent_answer=op.proponent_answer(),
                             assessor_answer=op.assessor_answer(),
+                            add_info_section_prop=cddp_question['show_add_info_section_prop'],
                         )
                     response.append(res)
                 else:

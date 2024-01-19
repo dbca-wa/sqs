@@ -17,7 +17,7 @@ import traceback
 import json
 from datetime import datetime
 
-from sqs.components.gisquery.models import Layer, LayerRequestLog
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.loader_utils import LayerLoader, DbLayerProvider
 from sqs.components.gisquery.serializers import (
@@ -25,6 +25,7 @@ from sqs.components.gisquery.serializers import (
     DefaultLayerSerializer,
     GeoJSONLayerSerializer,
     LayerRequestLogSerializer,
+    TaskSerializer,
 )
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.decorators import basic_exception_handler, ip_check_required, traceback_exception_handler
@@ -86,12 +87,14 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     def geojson(self, request, *args, **kwargs):            
         """ 
         http://localhost:8002/api/v1/layers/informal_reservess/geojson.json
+        http://localhost:8002/api/v1/layers/informal_reservess/geojson.json?num_features=5
 
         # List all layers available on SQS
         http://localhost:8002/api/v1/layers/
         """
         self.serializer_class = GeoJSONLayerSerializer
         layer_name = kwargs.get('pk')
+        num_features = int(request.GET.get('num_features', 3))
 
         # get from cache, if exists. Otherwise get from DB, if exists
         layer_provider = DbLayerProvider(layer_name=layer_name, url='')
@@ -103,8 +106,15 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
                 data={'errors': f'Layer Name {layer_name} Not Found'}
             )
 
+        geojson_truncated = json.loads(layer_gdf[:num_features].to_json())
+        add_features_to_geojson = {
+            'totalFeatures': len(layer_gdf),
+            'truncatedFeatures': num_features,
+        }
+        add_features_to_geojson.update(geojson_truncated)
         #return Response(json.loads(layer_gdf.to_json()))
-        return Response(layer_provider.layer_geojson)
+        #return Response(layer_provider.layer_geojson)
+        return JsonResponse(add_features_to_geojson)
 
     @action(detail=False, methods=['GET',])
     @traceback_exception_handler
@@ -206,7 +216,48 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         return  JsonResponse(data={'error': f'Cache not found: {layer_name}'}, status=status.HTTP_400_BAD_REQUEST)
 
-            
+    @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
+    def check_queue(self, request, *args, **kwargs):            
+        """ Get status of given job
+
+            http://localhost:8002/api/v1/layers/check_queue/?proposal_id=1780&system=DAS&request_type=FULL
+            requests.get('http://localhost:8002/api/v1/layers/check_queue', params={'proposal_id':'1780', 'system':'DAS', 'request_type':'FULL'})
+        """
+
+        response = {}
+        try:
+            proposal_id = request.GET.get('proposal_id')
+            request_type = request.GET.get('request_type')
+            system = request.GET.get('system')
+
+            if proposal_id is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Proposal ID specified in Request'})
+            if request_type is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request_Type specified in Request'})
+            if system is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No System Name specified in Request'})
+
+            description = f'{system}_{request_type}_{proposal_id}'
+            task_qs = Task.objects.filter(
+                status__in=[Task.STATUS_CREATED, Task.STATUS_RUNNING], system=system, description=description,
+            )
+            if task_qs.count() == 0:
+                response = {'message': f'Requested Task not found in Queue: {description}'}
+            else:
+                task = task_qs[0]
+                if task.status == Task.STATUS_CREATED:
+                    response = {'message': f'Requested Task is queued at position {task.position}'}
+                else:
+                    response = {'message': f'Requested Task is currently running: {description}'}
+
+        except Exception as e:
+            logger.error(traceback.print_exc())
+            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': str(e)})
+
+        return JsonResponse(response)
+
+   
 class LayerRequestLogViewSet(viewsets.ModelViewSet):
     queryset = LayerRequestLog.objects.filter().order_by('id')
     serializer_class = LayerRequestLogSerializer
@@ -227,7 +278,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     @traceback_exception_handler
     def request_data(self, request, *args, **kwargs):            
         """
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?system=das
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das ('full'/'partial'/'single')
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das&when=True
 
@@ -252,10 +303,12 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     @traceback_exception_handler
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbcachema,wa.gov.au/api/v1/logs/766/request_log.json
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json             (last request log ID)
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?request_type=FULL ('full'/'partial'/'single')
-            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?metrics=true
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log?metrics=true      (Metrics Only)
+            https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all               (Include Payload Data - Geojson, Masterlist Questions etc)
+
+            http://localhost:8002/api/v1/logs/1780/request_data/?system=das              (Request log by Proposal ID and System)
         """
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
@@ -301,6 +354,71 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, remove_fields=[]) 
         return Response(serializer.data)
 
+class TaskViewSet(viewsets.ModelViewSet):
+    queryset = Task.objects.filter().order_by('id')
+    serializer_class = TaskSerializer
+    http_method_names = ['get'] #, 'post', 'patch', 'delete']
+
+#    @traceback_exception_handler
+#    def list(self, request, *args, **kwargs):            
+#        """ http://localhost:8002/api/v1/tasks/
+#            https://sqs-dev.dbca.wa.gov.au/api/v1/tasks/
+#            https://sqs-dev.dbca.wa.gov.au/api/v1/tasks?records=5
+#        """
+#        records = self.request.GET.get('records', 20)
+#        queryset = self.queryset.all().order_by('-pk')[:int(records)]
+#        serializer = self.get_serializer(queryset, many=True) #, remove_fields=['data', 'response'])
+#        return Response(serializer.data)
+
+    @action(detail=False, methods=['GET',])
+    @traceback_exception_handler
+    def get_tasks(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11
+            http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11&all
+        """
+        all_fields = True if 'all' in request.GET else False
+        task_ids = [task_id.strip() for task_id in request.GET['task_ids'].split(',')]
+        qs = Task.objects.filter(id__in=task_ids)
+
+        remove_fields = [] if all_fields else ['stdout', 'stderr']
+        serializer = self.get_serializer(qs, many=True, remove_fields=remove_fields) 
+        return Response(serializer.data)
+
+
+from rest_framework.pagination import PageNumberPagination
+from rest_framework_datatables.pagination import DatatablesPageNumberPagination
+from rest_framework_datatables.filters import DatatablesFilterBackend
+from rest_framework_datatables.renderers import DatatablesRenderer
+
+class TaskPaginatedViewSet(viewsets.ModelViewSet):
+    #filter_backends = (ProposalFilterBackend,)
+    filter_backends = (DatatablesFilterBackend,)
+    pagination_class = DatatablesPageNumberPagination
+    #renderer_classes = (ProposalRenderer,)
+    renderer_classes = (DatatablesRenderer,)
+    queryset = Task.objects.none()
+    serializer_class = TaskSerializer
+    #search_fields = ['lodgement_number',]
+    page_size = 10
+
+    def get_queryset(self):
+        return Task.objects.all()
+        
+    @action(detail=False, methods=['GET',])
+    def task_datatable_list(self, request, *args, **kwargs):
+        """ http://localhost:8002/api/v1/task_paginated/task_datatable_list/?format=datatables&draw=1&length=10 """
+        queryset = self.get_queryset()
+
+        #queryset = self.filter_queryset(queryset)
+        self.paginator.page_size = queryset.count()
+        result_page = self.paginator.paginate_queryset(queryset, request)
+        serializer = TaskSerializer(
+            result_page, context={'request': request}, many=True
+        )
+        data = serializer.data
+
+        response = self.paginator.get_paginated_response(data)
+        return response
 
 class PointQueryViewSet(viewsets.ModelViewSet):
     queryset = Layer.objects.filter().order_by('id')
@@ -338,96 +456,5 @@ class PointQueryViewSet(viewsets.ModelViewSet):
 
         return JsonResponse(status=response.get('status'), data=response)
 
-
-#    @action(detail=False, methods=['POST',])
-#    @ip_check_required
-#    @traceback_exception_handler
-#    def add_layer(self, request, *args, **kwargs):            
-#        """ 
-#        curl -d @sqs/data/json/threatened_priority_flora.json -X POST http://localhost:8002/api/v1/layers/<APIKEY>/add_layer.json --header "Content-Type: application/json" --header "Accept: application/json"
-#        """
-#        layer_name = request.data['layer_name']
-#        url = request.data['url']
-#        geojson = request.data['geojson']
-#
-#        loader = LayerLoader(url, layer_name)
-#        layer = loader.load_layer(geojson=geojson)
-#        return Response(**loader.data)
-
-#    @action(detail=True, methods=['POST',])
-#    @traceback_exception_handler
-#    def layer_test(self, request, *args, **kwargs):            
-#        """ http://localhost:8002/api/v1/layers/<APIKEY>/1/layer.json 
-#            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/1/layer_test.json
-#            https://sqs-dev.dbca.wa.gov.au/api/v1/layers/<APIKEY>/1/layer_test.json
-#        """
-#        return Response({"test":"test"})
-
-
-#class DisturbanceLayerViewSet(viewsets.ModelViewSet):
-#    queryset = Layer.objects.filter().order_by('id')
-#    serializer_class = DisturbanceLayerSerializer
-#
-#    @action(detail=False, methods=['GET',])
-#    @traceback_exception_handler
-#    def csrf_token(self, request, *args, **kwargs):            
-#        """ https://sqs-dev.dbca.wa.gov.au/api/v1/das/csrf_token.json
-#            https://sqs-dev.dbca.wa.gov.au/api/v1/das/<APIKEY>/csrf_token.json
-#        """
-#        return Response({"test":"get_test"})
-#
-#    @action(detail=False, methods=['POST',]) # POST because request will contain GeoJSON polygon to intersect with layer stored on SQS. If layer does not exist, SQS will retrieve from KMI
-#    @ip_check_required
-#    @traceback_exception_handler
-#    def spatial_query(self, request, *args, **kwargs):            
-#        """ 
-#        import requests
-#        from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
-#        requests.post('http://localhost:8002/api/v1/das/spatial_query/', json=CDDP_REQUEST_JSON)
-#        apikey='1234'
-#        r=requests.post(url=f'http://localhost:8002/api/v1/das/{apikey}/spatial_query/', json=DAS_QUERY_JSON)
-#
-#        OR
-#        curl -d @sqs/utils/das_tests/request_log/das_curl_query.json -X GET http://localhost:8002/api/v1/das/spatial_query/ --header "Content-Type: application/json" --header "Accept: application/json"
-#        """
-#        #import ipdb; ipdb.set_trace()
-#        masterlist_questions = request.data['masterlist_questions']
-#        geojson = request.data['geojson']
-#        proposal = request.data['proposal']
-#        system = proposal.get('system', 'DAS')
-#
-#        # log layer requests
-#        request_log = LayerRequestLog.create_log(request.data)
-#
-#        dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
-#        response = dlq.query()
-#  
-#        request_log.response = response
-#        request_log.save()
-#
-#        return Response(response)
-
-#class DefaultLayerViewSet(viewsets.GenericViewSet):
-
-#    @action(detail=False, methods=['POST',])
-#    @ip_check_required
-#    @traceback_exception_handler
-#    def point_query(self, request, *args, **kwargs):            
-#        """ 
-#        http://localhost:8002/api/v1/layers/<APIKEY>/point_query.json
-#
-#        curl -d '{"layer_name": "cddp:dpaw_regions", "layer_attrs":["office","region"], "longitude": 121.465836, "latitude":-30.748890}' -X POST http://localhost:8002/api/v1/layers/point_query.json --header "Content-Type: application/json" --header "Accept: application/json"
-#        """
-#
-#        #import ipdb; ipdb.set_trace()
-#        layer_name = request.data['layer_name']
-#        longitude = request.data['longitude']
-#        latitude = request.data['latitude']
-#        layer_attrs = request.data.get('layer_attrs', [])
-#        predicate = request.data.get('predicate', 'within')
-#
-#        helper = PointQueryHelper(layer_name, layer_attrs, longitude, latitude)
-#        response = helper.spatial_join(predicate=predicate)
-#        return Response(response)
 
 

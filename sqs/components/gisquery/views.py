@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.cache import cache
+from django.utils import timezone
 
 from datetime import datetime, timedelta
 import time
@@ -17,7 +18,7 @@ import unicodecsv
 import pytz
 import traceback
 
-from sqs.components.gisquery.models import Layer, LayerRequestLog
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import DbLayerProvider
@@ -76,6 +77,8 @@ class DisturbanceLayerView(View):
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Shapefile/GeoJSON found for Proposal {proposal.get("id")}'})
             if len(masterlist_questions)==0:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No CDDP Masterlist Questions specified in Request'})
+            if request_type is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request_Type specified in Request'})
             if system is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No System Name specified in Request'})
 
@@ -128,7 +131,85 @@ class DisturbanceLayerView(View):
 
         cache.delete(cache_key)
         logger.info(f'Propodal ID {proposal["id"]}: Total Time: {total_time} secs')
-        return JsonResponse(response)
+        return JsonResponse(status=status.HTTP_200_OK, data=response)
+
+
+class DisturbanceLayerQueueView(View):
+    queryset = Layer.objects.filter().order_by('id')
+
+    @csrf_exempt
+    def post(self, request):            
+        """ Intersect user provided Shapefile/GeoJSON with SQS layers to infer required responses
+
+        import requests
+        from sqs.utils.das_tests.request_log.das_query import DAS_QUERY_JSON
+        r = requests.post(url=f'http://localhost:8002/api/v1/das/spatial_query/', data={data: json.dumps(DAS_QUERY_JSON)})
+        """
+
+        try:
+            data = json.loads(request.POST['data'])
+
+            proposal = data.get('proposal')
+            current_ts = proposal.get('current_ts') # only available following subsequent Prefill requests
+            geojson = data.get('geojson')
+            masterlist_questions = data.get('masterlist_questions')
+            request_type = data.get('request_type')
+            system = data.get('system')
+            requester = data.get('requester')
+            #import ipdb; ipdb.set_trace()
+
+            if proposal is None or proposal.get('schema') is None or proposal.get('id') is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Proposal schema specified in Request'})
+            if geojson is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Shapefile/GeoJSON found for Proposal {proposal.get("id")}'})
+            if len(masterlist_questions)==0:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No CDDP Masterlist Questions specified in Request'})
+            if request_type is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request_Type specified in Request'})
+            if system is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No System Name specified in Request'})
+            if requester is None:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request User/Email specified in Request'})
+
+            task_qs = Task.objects.filter(
+                status=Task.STATUS_RUNNING, system=system, app_id=proposal["id"],
+            )
+            if task_qs.count() > 0:
+                response = {'message': f'Request aborted: Task is already running: Proposal {proposal.get("id")}'}
+
+            task, created = Task.objects.update_or_create(
+                system=system,
+                app_id=proposal['id'],
+                status=Task.STATUS_CREATED,
+                defaults={
+                    'description': f'{system}_{request_type}_{proposal["id"]}',
+                    'script': 'python manage.py das_intersection_query', 
+                    'parameters': '', 
+                    'data': data,
+                    'requester': requester,
+                },
+            )
+
+            if created:
+                response = {'data': {'task_id': task.id, 'task_created': created},
+                            'message': f'Requested Task is queued at position {task.position}', 'position': f'{task.position}'
+                           }
+            else: 
+                # request is an update to an existing queued task 
+                task.data = data,
+                task.requester = requester,
+                task.created = datetime.now().replace(tzinfo=timezone.utc)
+                task.save()
+
+                response = {'data': {'task_id': task.id, 'task_created': created}, 
+                            'message': f'Previously queued request at position {task.position} has been updated with new request', 'position': f'{task.position}'
+                           }
+
+        except Exception as e:
+            logger.error(traceback.print_exc())
+            return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={'errors': str(e)})
+
+        return JsonResponse(status=status.HTTP_200_OK, data=response)
 
 
 class DefaultLayerProviderView(View):

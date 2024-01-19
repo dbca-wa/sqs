@@ -1,4 +1,4 @@
-Django==3.2.4
+Django==3.2.23
 django-extensions==1.9.8
 #git+https://github.com/dbca-wa/dpaw-utils.git@0.4.2#egg=dpaw-utils
 git+https://github.com/xzzy/webtemplate.git#egg=webtemplate_dbca
@@ -15,6 +15,7 @@ django-cron==0.5.0
 djangorestframework==3.12.0
 djangorestframework-gis==0.16
 djangorestframework-csv==2.0.0
+djangorestframework-datatables==0.4.0
 pycountry==17.1.8
 geojson==1.3.3
 django-confy==1.0.4
@@ -48,4 +49,12 @@ matplotlib==3.5.1
 packaging==21.3
 pyparsing==3.0.7
 
+# For ER Diagram image generation 'python manage.py graph_models --pygraphviz -a -g -I RevisionedMixin,Layer,LayerRequestLog,Task,TaskMetrics -o ~/Downloads/sqs_er_21Dec2023_v1.png'
+#pyparsing==2.4.6
+pydot==1.4.2
+pygraphviz==1.7
+pydotplus==2.0.2
+
+git+https://github.com/dbca-wa/appmonitor_client.git#egg=appmonitor_client
+python-decouple==3.8
 

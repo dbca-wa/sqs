@@ -1,4 +1,6 @@
-15 0 * * * root eval $(grep -v '^#' /etc/.cronenv | xargs -d "\n" -I {} echo export \"{}\" ) && cd /app && python manage.py cron_tasks > logs/run_cron_tasks.log 2>&1
+15 0 * * * root eval $(grep -v '^#' /etc/.cronenv | xargs -d "\n" -I {} echo export \"{}\" ) && cd /app && python manage.py cron_tasks >> logs/run_cron_tasks.log 2>&1
 # First Sunday of every Month
-0 1 1-7 * */7 root eval $(grep -v '^#' /etc/.cronenv | xargs -d "\n" -I {} echo export \"{}\" ) && cd /app && python manage.py update_cache > logs/run_update_cache.log 2>&1
+0 1 1-7 * */7 root eval $(grep -v '^#' /etc/.cronenv | xargs -d "\n" -I {} echo export \"{}\" ) && cd /app && python manage.py update_cache >> logs/run_update_cache.log 2>&1
+# Every 15 mins
+*/5 * * * * root eval $(grep -v '^#' /etc/.cronenv | xargs -d "\n" -I {} echo export \"{}\" ) && cd /app && run-one python manage.py task_runner >> logs/task_runner.log 2>&1
 
