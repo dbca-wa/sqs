@@ -100,6 +100,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_gis',
     'rest_framework_swagger',
+    'appmonitor_client',
 ]
 
 ADD_REVERSION_ADMIN=True
@@ -221,9 +222,9 @@ DATABASES = {
     'default': database.config(),
 }
 
-#CRON_CLASSES = [
-#    'sqs.cron.OracleIntegrationCronJob',
-#]
+CRON_CLASSES = [
+    'appmonitor_client.cron.CronJobAppMonitorClient',
+]
 
 BASE_URL=env('BASE_URL')
 

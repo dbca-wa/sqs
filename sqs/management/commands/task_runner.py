@@ -48,7 +48,7 @@ class TaskRunner(object):
                 logger.info(f'Executing command \'{cmd}\'')
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
                 time_taken = self.update_task_metrics(task.id, result, start_time)
-                logger.info(f'Completed command \'{cmd}\'. Time Taken {time_taken}')
+                logger.info(f'Completed command \'{cmd}\'. ({task.system}_{task.app_id}) - Time Taken {time_taken} mins')
 
             except Exception as e:
                 logger.error(f'Failed to run task\n{e}')
