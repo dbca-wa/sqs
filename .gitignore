@@ -9,6 +9,7 @@ mooring/cache/*
 .ropeproject/
 *.csv
 *.xls*
+data_store/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

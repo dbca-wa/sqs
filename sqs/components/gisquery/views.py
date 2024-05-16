@@ -28,6 +28,7 @@ from sqs.components.api import utils as api_utils
 from sqs.decorators import ip_check_required, basic_exception_handler, traceback_exception_handler, apiview_response_exception_handler
 from sqs.exceptions import LayerProviderException
 from sqs.components.gisquery.utils import set_das_cache, clear_cache
+from sqs.components.gisquery.utils.schema import is_valid_schema
 
 import logging
 logger = logging.getLogger(__name__)
@@ -156,7 +157,6 @@ class DisturbanceLayerQueueView(View):
             request_type = data.get('request_type')
             system = data.get('system')
             requester = data.get('requester')
-            #import ipdb; ipdb.set_trace()
 
             if proposal is None or proposal.get('schema') is None or proposal.get('id') is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Proposal schema specified in Request'})
@@ -171,11 +171,17 @@ class DisturbanceLayerQueueView(View):
             if requester is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request User/Email specified in Request'})
 
+            is_valid = is_valid_schema(data)
+            if not is_valid:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Invalid Schema Payload in Request: {is_valid}'})
+
             task_qs = Task.objects.filter(
                 status=Task.STATUS_RUNNING, system=system, app_id=proposal["id"],
             )
             if task_qs.count() > 0:
                 response = {'message': f'Request aborted: Task is already running: Proposal {proposal.get("id")}'}
+
+            request_log = LayerRequestLog.create_log(data, request_type)
 
             task, created = Task.objects.update_or_create(
                 system=system,
@@ -185,7 +191,8 @@ class DisturbanceLayerQueueView(View):
                     'description': f'{system}_{request_type}_{proposal["id"]}',
                     'script': 'python manage.py das_intersection_query', 
                     'parameters': '', 
-                    'data': data,
+                    #'data': data,
+                    'request_log': request_log,
                     'requester': requester,
                 },
             )

@@ -6,15 +6,18 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.postgres.aggregates.general import ArrayAgg
 from django.db.models import Count
+from django.utils import timezone
+
 from reversion import revisions
 from reversion.models import Version
 import geopandas as gpd
 import json
+from pathlib import Path
 
 from datetime import datetime, timedelta
-from django.utils import timezone
 
 from sqs.utils import HelperUtils, DATETIME_FMT
+from sqs.decorators import traceback_exception_handler
 
 
 # Next lin needed, to migrate ledger_api_clinet module
@@ -23,6 +26,10 @@ from sqs.utils import HelperUtils, DATETIME_FMT
 import logging
 logger = logging.getLogger(__name__)
 
+
+def earliest_date():
+    ''' Return datetime <settings.STALE_TASKS_DAYS> ago '''
+    return (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
 
 class RevisionedMixin(models.Model):
     """
@@ -72,11 +79,18 @@ class ActiveLayerManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(active=True)
 
+def geojson_file_path(instance, filename):
+    # file will be uploaded to <settings.DATA_STORE>/<filename>
+    return f'{settings.DATA_STORE}/{filename}'
+
 class Layer(RevisionedMixin):
 
     name = models.CharField(max_length=128, unique=True)
     url = models.URLField(max_length=1024)
-    geojson = JSONField('Layer GeoJSON')
+    #geojson = JSONField('Layer GeoJSON')
+    geojson_file= models.FileField(upload_to=geojson_file_path)
+    #attributes = models.TextField('Layer Attributes')
+    attr_values = JSONField('Layer Attribute Values')
     version = models.IntegerField(editable=False, default=0)
     active = models.BooleanField(default=True)
 
@@ -88,11 +102,21 @@ class Layer(RevisionedMixin):
         super().save(*args, **kwargs)
 
     @property
+    def attributes (self):
+        return [attr_val['attribute'] for attr_val in self.attr_values]
+
+    @property
+    @traceback_exception_handler
     def to_gdf(self):
         ''' Layer to Geo Dataframe (converted to settings.CRS ['epsg:4326']) '''
-        gdf = gpd.read_file(json.dumps(self.geojson))
-        #gdf.to_crs(settings.CRS, inplace=True)
-        return gdf
+        #gdf = gpd.read_file(json.dumps(self.geojson_file.path))
+
+        if not Path(self.geojson_file.path).is_file():
+            #logger.warn(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+            #return None
+            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
+        return gpd.read_file(self.geojson_file.path)
 
     def get_obj_version_ids(self):
         ''' lists all versions for current layer '''
@@ -206,7 +230,7 @@ class LayerRequestLog(models.Model):
 class ActiveQueueManager(models.Manager):
     ''' filter queued tasks and omit old (stale) queued tasks '''
     def get_queryset(self):
-        earliest_date = (datetime.now() - timedelta(days=7)).replace(tzinfo=timezone.utc)
+        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
         return super().get_queryset().filter(status=Task.STATUS_CREATED, created__gte=earliest_date)
 
 
@@ -227,6 +251,8 @@ class Task(RevisionedMixin):
     STATUS_COMPLETED = 'completed'
     STATUS_CANCELLED = 'cancelled'
     STATUS_ERROR = 'error'
+    STATUS_MAX_QUEUE_TIME = 'max_queue_time'
+    STATUS_MAX_RETRIES_REACHED = 'max_retries'
     STATUS_CHOICES = (
 	(STATUS_FAILED,    'Failed'),
 	(STATUS_CREATED,   'Created'),
@@ -234,16 +260,18 @@ class Task(RevisionedMixin):
 	(STATUS_COMPLETED, 'Completed'),
 	(STATUS_CANCELLED, 'Cancelled'),
 	(STATUS_ERROR,     'Error'),
+        (STATUS_MAX_QUEUE_TIME, 'Max_Queue_Time_Reached'),
+        (STATUS_MAX_RETRIES_REACHED, 'Max_Retries_Reached'),
     )
 
     app_id      = models.PositiveIntegerField('Application ID')
     system      = models.CharField('Application name', max_length=100)
     requester   = models.CharField('Prefill Request User', max_length=100)
     script      = models.TextField('Script name')
-    data        = JSONField('Request query from external system')
+    #data        = JSONField('Request query from external system')
     description = models.TextField('Task Description', null=True, blank=True)
     parameters  = models.TextField('Script Parameters', null=True, blank=True)
-    status      = models.CharField('Task Status', choices=STATUS_CHOICES, default=STATUS_CREATED, max_length=12)
+    status      = models.CharField('Task Status', choices=STATUS_CHOICES, default=STATUS_CREATED, max_length=32)
     priority    = models.PositiveSmallIntegerField('Task Priority', choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL)
     start_time    = models.DateTimeField(null=True, blank=True)
     end_time    = models.DateTimeField(null=True, blank=True)
@@ -251,6 +279,7 @@ class Task(RevisionedMixin):
     stderr      = models.TextField(null=True, blank=True)
     request_log = models.OneToOneField(LayerRequestLog, on_delete=models.CASCADE, related_name='request_log', null=True, blank=True)
     created     = models.DateTimeField(default=timezone.now, editable=False) # jm: needed for ordering queue
+    retries     = models.PositiveSmallIntegerField(default=0)
 
     objects = models.Manager()
     queued_jobs = ActiveQueueManager()
@@ -263,10 +292,14 @@ class Task(RevisionedMixin):
         return f'{self.id} {self.system}_{self.app_id}'
 
     @property
+    def data(self):
+        return self.request_log.data
+
+    @property
     def queue(self):
         """ Returns the ordered task queue """
-        return Task.objects.filter(status=self.STATUS_CREATED).order_by('priority', 'created')
-        #return Task.queued_jobs.all().order_by('priority', 'id')
+        #return Task.objects.filter(status=self.STATUS_CREATED).order_by('priority', 'created')
+        return Task.queued_jobs.filter(status=self.STATUS_CREATED).order_by('priority', 'created')
 
     def next(self):
         """ Returns the next task in the queue """

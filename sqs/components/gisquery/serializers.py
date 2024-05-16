@@ -22,7 +22,7 @@ class DefaultLayerSerializer(serializers.ModelSerializer):
             'url',
             'version',
             'active',
-            #'geojson',
+            'geojson_file',
         )
 
     def __init__(self, *args, **kwargs):

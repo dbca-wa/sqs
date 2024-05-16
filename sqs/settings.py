@@ -54,6 +54,12 @@ CRS = env('CRS', 'epsg:4326')
 CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
 GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
 MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
+MAX_RETRIES = env('MAX_RETRIES', 3)
+STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
+
+DATA_STORE = env('DATA_STORE', 'data_store') # MB
+if not os.path.exists(DATA_STORE):
+    os.makedirs(DATA_STORE)
 
 LANGUAGE_CODE = 'en-AU'
 TIME_ZONE = 'Australia/Perth'
@@ -89,6 +95,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
+    'django_cron',
 
     'reversion_compare',
     'bootstrap3',

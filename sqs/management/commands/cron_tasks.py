@@ -17,7 +17,8 @@ class Command(BaseCommand):
     help = 'Run the Spatial Query System Cron tasks'
 
     def handle(self, *args, **options):
-        stdout_redirect = ' | tee -a {}'.format(LOGFILE)
+        #stdout_redirect = ' | tee -a {}'.format(LOGFILE)
+        stdout_redirect = ' 2>&1 | tee {}'.format(LOGFILE)
         subprocess.call('cat /dev/null > {}'.format(LOGFILE), shell=True)  # empty the log file
 
         logger.info('Running command {}'.format(__name__))

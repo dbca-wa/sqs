@@ -1,9 +1,10 @@
-Django==3.2.23
+Django~=3.2.0
+#Django==3.2.23
 django-extensions==1.9.8
 #git+https://github.com/dbca-wa/dpaw-utils.git@0.4.2#egg=dpaw-utils
 git+https://github.com/xzzy/webtemplate.git#egg=webtemplate_dbca
 git+https://github.com/dbca-wa/dbca-utils@1.1.1#egg=dbca-utils
-psycopg2-binary==2.8.5
+psycopg2-binary==2.9.9
 ipython==7.19.0
 django-utils-six==2.0
 social-auth-app-django==2.1.0
@@ -11,7 +12,7 @@ git+https://github.com/scottp-dpaw/social-core.git@email_fix#egg=social-auth-cor
 django_bootstrap3==15.0.0
 django-reversion==5.0.0
 django-reversion-compare==0.15.0
-django-cron==0.5.0
+django-cron==0.6.0
 djangorestframework==3.12.0
 djangorestframework-gis==0.16
 djangorestframework-csv==2.0.0
@@ -24,6 +25,8 @@ dj-static==0.0.6
 dj-database-url==0.5.0
 whitenoise==5.3.0
 django-rest-swagger==2.2.0
+#jsonschema==4.21.1
+json_checker==2.0.0
 
 # Needed for shell_plus crash issue
 jedi==0.17.2
@@ -50,6 +53,7 @@ packaging==21.3
 pyparsing==3.0.7
 
 # For ER Diagram image generation 'python manage.py graph_models --pygraphviz -a -g -I RevisionedMixin,Layer,LayerRequestLog,Task,TaskMetrics -o ~/Downloads/sqs_er_21Dec2023_v1.png'
+# NEEDED installation of 'sudo apt install libpython3.10-dev' following install of python3.10
 #pyparsing==2.4.6
 pydot==1.4.2
 pygraphviz==1.7
@@ -60,3 +64,6 @@ python-decouple==3.8
 
 setuptools==69.0.3
 wheel==0.42.0
+idna==3.7
+pillow==10.3.0
+sqlparse==0.5.0

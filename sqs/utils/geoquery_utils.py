@@ -188,7 +188,7 @@ class DisturbanceLayerQueryHelper():
                 answer_mlq=cddp_question['answer_mlq'],
                 expired=expired,
                 layer_name=layer_provider.layer_name,
-                layer_cached=layer_provider.layer_cached,
+                #layer_cached=layer_provider.layer_cached,
                 condition=condition,
                 time_retrieve_layer=round(time_retrieve_layer, 3),
                 time=round(time_taken, 3),

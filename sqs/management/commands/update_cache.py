@@ -18,6 +18,10 @@ class Command(BaseCommand):
     help = 'Updates layer cache'
 
     def handle(self, *args, **options):
+        pass
+
+    def _handle(self, *args, **options):
+        ''' NOTE - no longer necessary, Layer JSON now stored in files on local store. '''
 
         errors = []
         updates = []
