@@ -231,9 +231,11 @@ class DefaultLayerProviderView(View):
         '''
         try:
             layer_details = json.loads(request.POST['layer_details'])
+            system = request.POST['system']
 
             layer_name = layer_details.get('layer_name')
             url = layer_details.get('layer_url')
+            logger.info(f'Layer Create/Update request from System {system}: {layer_name} - {url}')
 
             if layer_name is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
@@ -246,9 +248,9 @@ class DefaultLayerProviderView(View):
 
         except LayerProviderException as e:
             logger.error(traceback.print_exc())
-            if 'Layer exceeds max' in str(e):
-                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
-            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver if layer/GeoJSON exists. URL: {url}'})
+#            if 'Layer exceeds max' in str(e):
+#                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver/Source if layer/GeoJSON exists. URL: {url}'})
 
         except Exception as e:
             logger.error(traceback.print_exc())

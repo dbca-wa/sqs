@@ -70,7 +70,6 @@ class LayerLoader():
 
     def load_layer(self, filename=None, geojson=None):
 
-        #import ipdb; ipdb.set_trace()
         try:
             #raise Exception('my exception')
             layer = None
@@ -81,7 +80,10 @@ class LayerLoader():
                 # get GeoJSON from GeoServer
                 geojson = self.retrieve_layer()
 
-            layer_gdf1 = gpd.read_file(json.dumps(geojson))
+            #layer_gdf1 = gpd.read_file(json.dumps(geojson))
+            # Create gdf from GEOJSON
+            layer_gdf1 = gpd.GeoDataFrame.from_features(geojson['features'])
+            #layer_gdf1.set_crs('EPSG:4283', inplace=True)
 
             qs_layer = Layer.objects.filter(name=self.name)
             with transaction.atomic():
@@ -139,7 +141,6 @@ class LayerLoader():
 
                     #layer = Layer.objects.create(name=self.name, url=self.url, geojson=geojson)
                     #layer_gdf = gpd.read_file(layer.geojson_file.path)
-                    #import ipdb; ipdb.set_trace()
                     attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
                     #attr_values = [layer_gdf1[col].dropna().unique().tolist() for col in attributes]
 
@@ -149,7 +150,6 @@ class LayerLoader():
                         values = list(set(json.loads(data)[attr].values()))
                         attr_values.append(dict(attribute=attr, values=values))
 
-                    #import ipdb; ipdb.set_trace()
                     layer = Layer.objects.create(name=self.name, url=self.url, geojson_file=filename, attr_values=attr_values)
 
                     self.data = dict(status=HTTP_201_CREATED, data=f'Layer created: {self.name}')
@@ -210,7 +210,6 @@ class DbLayerProvider():
         Returns: layer_info, layer_gdf
         '''
         try:
-            #import ipdb; ipdb.set_trace()
             # try getting from cache
             logger.info(f'Retrieving Layer {self.layer_name} ...')
 #            layer_info, layer_gdf = self.get_from_cache()
