@@ -21,11 +21,11 @@ EQUALS       = 'Equals'
 
 class DefaultOperator():
     '''
-        cddp_question => overlay result from gpd.overlay (intersection, difference etc) --> dict
+        layer => layer details for given cddp_question (possibly multiple layers per question)
         overlay_gdf   => overlay gdf from gpd.overlay (intersection, difference etc)    --> GeoDataFrame
     '''
-    def __init__(self, cddp_question, overlay_gdf, widget_type):
-        self.cddp_question = cddp_question
+    def __init__(self, layer, overlay_gdf, widget_type):
+        self.layer = layer
         self.overlay_gdf = overlay_gdf
         self.widget_type = widget_type
         self.row_filter = self._comparison_result()
@@ -54,24 +54,39 @@ class DefaultOperator():
 
         return _list
 
+    def _get_overlay_result_df(self, column_names):
+        ''' Return (filtered) overlay result gdf for given columns/attributes from the gdf 
+            self.row_filter contains row indexes of overlay_gdf that match the operator_compare criteria
+            Returns --> gdf
+        '''
+        overlay_result = []
+        try:
+            overlay_gdf = self.overlay_gdf.iloc[self.row_filter,:] if self.row_filter is not None else self.overlay_gdf
+            overlay_result_df = overlay_gdf[column_names]
+        except KeyError as e:
+            layer_name = self.layer['layer']['layer_name']
+            _list = HelperUtils.pop_list(self.overlay_gdf.columns)
+            logger.error(f'Property Name "{column_names}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
 
+        #import ipdb; ipdb.set_trace()
+        return overlay_result_df
 
     def _get_overlay_result(self, column_name):
         ''' Return (filtered) overlay result for given column/attribute from the gdf 
             self.row_filter contains row indexes of overlay_gdf that match the operator_compare criteria
             Returns --> list
         '''
-        overlay_result = []
-        try:
-            overlay_gdf = self.overlay_gdf.iloc[self.row_filter,:] if self.row_filter is not None else self.overlay_gdf
-            overlay_result = overlay_gdf[column_name].tolist()
-        except KeyError as e:
-            layer_name = self.cddp_question['layer']['layer_name']
-            _list = HelperUtils.pop_list(self.overlay_gdf.columns.to_list())
-            logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
-
-        return overlay_result # return unique values
-        #return list(set(overlay_result)) # return unique values
+#        overlay_result = []
+#        try:
+#            overlay_gdf = self.overlay_gdf.iloc[self.row_filter,:] if self.row_filter is not None else self.overlay_gdf
+#            overlay_result = overlay_gdf[column_name].tolist()
+#        except KeyError as e:
+#            layer_name = self.layer['layer']['layer_name']
+#            _list = HelperUtils.pop_list(self.overlay_gdf.columns.to_list())
+#            logger.error(f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
+#
+#        return overlay_result # return unique values
+        return self._get_overlay_result_df(column_name).to_list()
 
     def _comparison_result(self):
         '''
@@ -83,9 +98,9 @@ class DefaultOperator():
         '''
         try:
 
-            column_name   = self.cddp_question.get('column_name')
-            operator   = self.cddp_question.get('operator')
-            value      = str(self.cddp_question.get('value'))
+            column_name   = self.layer.get('column_name')
+            operator   = self.layer.get('operator')
+            value      = str(self.layer.get('value'))
             value_type = HelperUtils.get_type(value)
 
             self.row_filter = None
@@ -131,80 +146,128 @@ class DefaultOperator():
         '''
         summary of query results - filters
         '''
-        column_name   = self.cddp_question.get('column_name')
+        column_name   = self.layer.get('column_name')
+#        if column_name=='LEG_CATEGORY':
+#            import ipdb; ipdb.set_trace()
+
         _operator_result = self._get_overlay_result(column_name)
         #return _operator_result
         return list(set(_operator_result))
 
+#    def grouped_result(self):
+#        '''
+#        returns grouped column_names response (equive to itertools.zip_longest())
+#        Returns --> list
+#        '''
+#        #import ipdb; ipdb.set_trace()
+#        proponent_items = self.layer.get('proponent_items')
+#        column_names = [i['answer'] for i in proponent_items if 'answer' in i and i['answer']]
+#        column_prefix = [i['prefix'] for i in proponent_items if 'prefix' in i and i['prefix']]
+#        prefix = ''
+#        if column_prefix:
+#            prefix = column_prefix[0]
+#        grouped_res = [prefix] + self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
+#        return '\n'.join(grouped_res)
+
     def proponent_answer(self):
-        """ Answer to be prefilled for proponent
-        """
-        try:
-            proponent_text_str = ''
-            visible_to_proponent = self.cddp_question.get('visible_to_proponent', False)
-            proponent_items = self.cddp_question.get('proponent_items')
+        visible_to_proponent = self.layer.get('visible_to_proponent', False)
+        proponent_items = self.layer.get('proponent_items')
+        column_names = [i['answer'] for i in proponent_items if 'answer' in i and i['answer']]
+        column_prefix = [i['prefix'] for i in proponent_items if 'prefix' in i and i['prefix']]
 
-            if visible_to_proponent and self.widget_type in TEXT_WIDGETS:
-                proponent_answer = []
-                for item in proponent_items:
-                    prefix = ''
-                    answer = ''
-                    if 'prefix' in item:
-                        prefix = item["prefix"]
-             
-                    if 'answer' in item:
-                        column_name = item['answer'].strip()
-                        try:
-                            proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                        except Exception as oe:
-                            logger.warn(f'{oe}')
-                            proponent_text = str(set(self._get_overlay_result(column_name)))
+        grouped_res = []
+        if visible_to_proponent:
+            grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
 
-                        #answer = f'{prefix} {item["answer"]}'
-                        answer = f'{prefix} {proponent_text}'
-             
-                    proponent_answer.append(answer.strip())
-                proponent_text_str = '\n'.join(proponent_answer)
+        if column_prefix:
+            grouped_res = [column_prefix[0]]  + grouped_res
 
-            else:
-                prefix_answers = '\n'.join( [item['prefix'] for item in proponent_items if 'prefix' in item and item['prefix']] )
-                return prefix_answers.strip()
-        except Exception as e:
-            logger.error(f'{e}')
+        return '\n'.join(grouped_res).replace(',',', ')
 
-        return proponent_text_str
-        
     def assessor_answer(self):
-        """ Answer to be prefilled for assessor
-        """
-        try:
-            assessor_text_str = ''
-            assessor_items = self.cddp_question.get('assessor_items')
+        assessor_items = self.layer.get('assessor_items')
+        column_names = [i['answer'] for i in assessor_items if 'answer' in i and i['answer']]
+        column_prefix = [i['prefix'] for i in assessor_items if 'prefix' in i and i['prefix']]
 
-            assessor_info = []
-            for item in assessor_items:
-                prefix = ''
-                info = ''
-                if 'prefix' in item:
-                    prefix = item["prefix"]
-         
-                if 'info' in item:
-                    column_name = item['info'].strip()
-                    try:
-                        assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
-                    except Exception as oe:
-                        logger.warn(f'{oe}')
-                        assessor_text = str(set(self._get_overlay_result(column_name)))
+        grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
+        #import ipdb; ipdb.set_trace()
 
-                    #info = f'{prefix} {item["info"]}'
-                    info = f'{prefix} {assessor_text}'
-         
-                assessor_info.append(info.strip())
-            assessor_text_str = '\n'.join(assessor_info)
-        except Exception as e:
-            logger.error(f'{e}')
+        if column_prefix:
+            grouped_res = [column_prefix[0]]  + grouped_res
 
-        return assessor_text_str
+        return '\n'.join(grouped_res).replace(',',', ')
+
+
+#    def proponent_answer(self):
+#        """ Answer to be prefilled for proponent
+#        """
+#        try:
+#            proponent_text_str = ''
+#            visible_to_proponent = self.layer.get('visible_to_proponent', False)
+#            proponent_items = self.layer.get('proponent_items')
+#
+#            if visible_to_proponent and self.widget_type in TEXT_WIDGETS:
+#                proponent_answer = []
+#                for item in proponent_items:
+#                    prefix = ''
+#                    answer = ''
+#                    if 'prefix' in item:
+#                        prefix = item["prefix"]
+#             
+#                    if 'answer' in item:
+#                        column_name = item['answer'].strip()
+#                        try:
+#                            proponent_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+#                        except Exception as oe:
+#                            logger.warn(f'{oe}')
+#                            proponent_text = str(set(self._get_overlay_result(column_name))).strip('{').strip('}')
+#
+#                        #answer = f'{prefix} {item["answer"]}'
+#                        answer = f'{prefix} {proponent_text}'
+#             
+#                    proponent_answer.append(answer.strip())
+#                proponent_text_str = '\n'.join(proponent_answer)
+#
+#            else:
+#                prefix_answers = '\n'.join( [item['prefix'] for item in proponent_items if 'prefix' in item and item['prefix']] )
+#                return prefix_answers.strip()
+#        except Exception as e:
+#            logger.error(f'{e}')
+#
+#        #import ipdb; ipdb.set_trace()
+#        return proponent_text_str
+
+#    def assessor_answer(self):
+#        """ Answer to be prefilled for assessor
+#        """
+#        try:
+#            assessor_text_str = ''
+#            assessor_items = self.layer.get('assessor_items')
+#
+#            assessor_info = []
+#            for item in assessor_items:
+#                prefix = ''
+#                info = ''
+#                if 'prefix' in item:
+#                    prefix = item["prefix"]
+#         
+#                if 'info' in item:
+#                    column_name = item['info'].strip()
+#                    try:
+#                        assessor_text = ', '.join( list(set(self._get_overlay_result(column_name))) )
+#                    except Exception as oe:
+#                        logger.warn(f'{oe}')
+#                        assessor_text = str(set(self._get_overlay_result(column_name))).strip('{').strip('}')
+#
+#                    #info = f'{prefix} {item["info"]}'
+#                    info = f'{prefix} {assessor_text}'
+#         
+#                assessor_info.append(info.strip())
+#            assessor_text_str = '\n'.join(assessor_info)
+#        except Exception as e:
+#            logger.error(f'{e}')
+#
+#        return assessor_text_str
 
  
 

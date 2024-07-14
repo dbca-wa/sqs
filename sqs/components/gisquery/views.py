@@ -203,8 +203,11 @@ class DisturbanceLayerQueueView(View):
                            }
             else: 
                 # request is an update to an existing queued task 
-                task.data = data,
-                task.requester = requester,
+                request_log = task.request_log
+                request_log.data = data
+                request_log.save()
+
+                task.requester = requester
                 task.created = datetime.now().replace(tzinfo=timezone.utc)
                 task.save()
 

@@ -241,7 +241,7 @@ LOGGING = {
     'version': 1,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s'
+            'format': '%(levelname)s %(asctime)s [%(filename)s.%(funcName)s:%(lineno)d] %(message)s'
         },
     },
     'handlers': {
