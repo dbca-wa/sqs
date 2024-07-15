@@ -23,7 +23,6 @@ class SchemaSearch():
         result = {}
         flat_dict = self._flatten(self.dictionary)
         for k, v in flat_dict.items():
-            #import ipdb; ipdb.set_trace()
             for search_item in search_list:
                 if k.lower()==search_item.lower():
                     result.update( {k: v} )
@@ -50,7 +49,6 @@ class SchemaSearch():
         result = {}
         flat_dict = self._flatten(self.dictionary)
         for k, v in flat_dict.items():
-            #import ipdb; ipdb.set_trace()
             key = k.split('.')[-1]
             result.update( {key: v} )
 
@@ -97,7 +95,6 @@ class SchemaSearch():
                 #    _flatten(elem, new_data, new_key, sep, width)
         else:
             if parent_key not in new_data:
-                #import ipdb; ipdb.set_trace()
                 new_data[parent_key] = old_data if not is_json(old_data) else json.loads(old_data)
                 #new_data[parent_key.split('.')[-1]] = old_data
             else:

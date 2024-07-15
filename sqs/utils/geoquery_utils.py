@@ -169,10 +169,8 @@ class DisturbanceLayerQueryHelper():
             #    print(len(question_group['questions']), question_group['questions'][0]['layer']['layer_name'], question_group['question_group'][:30])
 
             #for question_group in reordered_masterlist_questions:
-            #import ipdb; ipdb.set_trace()
             for question_group in self.masterlist_questions:
                 #if question_group['question_group'] == question:
-#                import ipdb; ipdb.set_trace()
                 #if question_group['question_group']['question'] == question:
                 if question_group['question_group'] == question:
                     #return question_group
@@ -245,7 +243,6 @@ class DisturbanceLayerQueryHelper():
                     layer_question_expiry = datetime.strptime(layer['expiry'], DATE_FMT).date() if layer['expiry'] else None
                     if layer_question_expiry is None or layer_question_expiry >= today.date():
 
-                        #import ipdb; ipdb.set_trace()
                         start_time_retrieve_layer = time.time()
 
                         answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
@@ -300,7 +297,6 @@ class DisturbanceLayerQueryHelper():
                             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
 
                         # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-                        #import ipdb; ipdb.set_trace()
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
                         operator_result = op.operator_result()
                         logger.info(f'Operator Result: {operator_result}')
@@ -348,7 +344,6 @@ class DisturbanceLayerQueryHelper():
 #        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
 #            import ipdb; ipdb.set_trace()
 
-        #import ipdb; ipdb.set_trace()
         return question_group_res
 
     def get_processed_question(self, question, widget_type):
@@ -362,7 +357,6 @@ class DisturbanceLayerQueryHelper():
             logger.error(traceback.print_exc())
             logger.error(f'Error Searching Question combination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
 
-        #import ipdb; ipdb.set_trace()
         return processed_questions
 
     def query_question(self, item, answer_type):
@@ -372,7 +366,6 @@ class DisturbanceLayerQueryHelper():
             try:
                 if 'layer_details' in response:
                     for layer_detail in response['layer_details']:
-                        #import ipdb; ipdb.set_trace()
                         question = layer_detail['question']['question']
                         answer_mlq = layer_detail['question']['answer']
                         layers = layer_detail['question']['layers']
@@ -432,7 +425,6 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            #import ipdb; ipdb.set_trace()
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
@@ -487,7 +479,6 @@ class DisturbanceLayerQueryHelper():
             item_options    = item['children']
 
             item_options_dict = [dict(name=i['name'], label=i['label']) for i in item_options]
-            #import ipdb; ipdb.set_trace()
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
@@ -536,7 +527,6 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            #import ipdb; ipdb.set_trace()
             processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
 #            if len(processed_questions) != 1:
 #                # for multi-select questions, there must be only one question
@@ -646,7 +636,6 @@ class DisturbanceLayerQueryHelper():
         response = {}
         question = {}
         try:
-            #import ipdb; ipdb; ipdb.set_trace()
             schema_question = item['label']
             schema_section  = item['name']
             schema_label    = schema_question
@@ -655,9 +644,6 @@ class DisturbanceLayerQueryHelper():
             if len(processed_questions)==0:
                 return {}
 
-            #response = []
-#            proponent_resp = ''
-#            assessor_resp = ''
             layer_name = ''
             error_msg = ''
             layers_agg = []
@@ -665,63 +651,50 @@ class DisturbanceLayerQueryHelper():
             grouped_resp_agg = ''
             proponent_resp_agg = ''
             assessor_resp_agg = ''
-            #if len(processed_questions)>0:
-            # TODO REWORD THE FOR LOOP BELOW - this is a loop over layers for a given question (sqq and sql) - not a loop over questions (there is only one question for text/textbox)
+            proponent_resp_agg = "<table><tr><th>Company</th></tr><tr><td>Alfreds Futterkiste</td></tr><tr><td>Centro comercial Moctezuma</td></tr></table>" + "\n\n"
             for idx, question in enumerate(processed_questions):
                 layer_details = []
-                #question = processed_questions[0] 
-                details = question.pop('layer_details', None)
-                label = question['proponent_answer'] if question['proponent_answer'] else None
-                assessor_info = question['assessor_answer']
+                for layer in question['layers']:
+                    details = layer.pop('layer_details', None)
+                    label = layer['proponent_answer'] if layer['proponent_answer'] else None
+                    assessor_info = layer['assessor_answer']
 
-#                # loop through proponent section prefix/answers
-#                for lbl in label.split('\n'):
-#                    proponent_resp += "(" + details['layer_name'] + " - " + details['column_name'] + ") " + lbl + " \n"
-#
-#                # loop through assessor section prefix/answers
-#                for info in assessor_info.split('\n'):
-#                    assessor_resp += "(" + details['layer_name'] + " - "  + details['column_name'] + ") " + info + " \n"
+                    proponent_resp_agg += layer['proponent_answer'] + "\n\n"
+                    assessor_resp_agg += layer['assessor_answer'] + "\n\n"
 
-                #grouped_resp_agg += question['grouped_response'] + "\n\n"
-                proponent_resp_agg += question['proponent_answer'] + "\n\n"
-                assessor_resp_agg += question['assessor_answer'] + "\n\n"
+                    #print(layer)
+                    #print(label)
+                    #print()
 
-                print(question)
-                #print(proponent_resp)
-                print(label)
-                print()
+                    layers_agg.append(
+                        dict(
+                            layer_name=details['layer_name'],
+                            layer_version=details['layer_version'],
+                            layer_created_date=details['layer_created_date'],
+                            layer_modified_date=details['layer_modified_date'],
+                            sqs_timestamp=details['sqs_timestamp'],
+                            visible_to_proponent=layer['visible_to_proponent'],
+                            condition=layer['condition'],
+                            operator_response=layer['operator_response'],
+                            proponent_answer=layer['proponent_answer'],
+                            assessor_answer=layer['assessor_answer'],
+                            error_msg=details['error_msg'],
+                        )
+                    ) 
 
-                layers_agg.append(
-                    dict(
-                        layer_name=details['layer_name'],
-                        layer_version=details['layer_version'],
-                        layer_created_date=details['layer_created_date'],
-                        layer_modified_date=details['layer_modified_date'],
-                        sqs_timestamp=details['sqs_timestamp'],
-                        condition=question['condition'],
-                        operator_response=question['operator_response'],
-                        proponent_answer=question['proponent_answer'],
-                        assessor_answer=question['assessor_answer'],
-                        #grouped_response=question['grouped_response'],
-                        error_msg=details['error_msg'],
+                proponent_resp_agg = proponent_resp_agg.strip('\n')
+                assessor_resp_agg = assessor_resp_agg.strip('\n')
+                details_agg = dict(
+                        layer_name=', '.join([i['layer_name'] for i in layers_agg]),
+                        layer_version=details['layer_version'] if details else '',
+                        layer_created_date=details['layer_created_date'] if details else '',
+                        layer_modified_date=details['layer_modified_date'] if details else '',
+                        sqs_timestamp=details['sqs_timestamp'] if details else '',
                     )
-                ) 
-
-            #grouped_resp_agg = grouped_resp_agg.strip('\n')
-            proponent_resp_agg = proponent_resp_agg.strip('\n')
-            assessor_resp_agg = assessor_resp_agg.strip('\n')
-            details_agg = dict(
-                    layer_name=', '.join([i['layer_name'] for i in layers_agg]),
-                    layer_version=details['layer_version'] if details else '',
-                    layer_created_date=details['layer_created_date'] if details else '',
-                    layer_modified_date=details['layer_modified_date'] if details else '',
-                    sqs_timestamp=details['sqs_timestamp'] if details else '',
-                )
 
             question_agg = dict(
                 question=question['question'] if question else '',
                 answer=question['answer'] if question else '',
-                visible_to_proponent=question['visible_to_proponent'] if question else '',
                 other_data=question['other_data'] if question else '',
                 layers=layers_agg,
             )
@@ -737,7 +710,6 @@ class DisturbanceLayerQueryHelper():
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
         print(f'response: {response}')
-        #import ipdb; ipdb.set_trace()
         return response
 
 

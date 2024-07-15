@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 GREATER_THAN = 'GreaterThan'
 LESS_THAN    = 'LessThan'
 EQUALS       = 'Equals'
+CONTAINS     = 'Contains'
+LIKE         = 'Like'
+OR           = 'OR'
+ISNOTNULL    = 'IsNotNull'
+ISNULL       = 'IsNull'
 
 
 class DefaultOperator():
@@ -68,7 +73,6 @@ class DefaultOperator():
             _list = HelperUtils.pop_list(self.overlay_gdf.columns)
             logger.error(f'Property Name "{column_names}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".')
 
-        #import ipdb; ipdb.set_trace()
         return overlay_result_df
 
     def _get_overlay_result(self, column_name):
@@ -110,11 +114,11 @@ class DefaultOperator():
             if len(overlay_result) == 0:
                 # list is empty
                 pass
-            if operator == 'IsNull': 
+            if operator == ISNULL: 
                 # TODO
                 pass
             else:
-                if operator == 'IsNotNull':
+                if operator == ISNOTNULL:
                     # list is not empty
                     self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).strip() != '']
 
@@ -131,6 +135,12 @@ class DefaultOperator():
                     else:
                         # comparing strings
                         self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
+                elif operator == CONTAINS:
+                    self.row_filter = []
+                elif operator == LIKE:
+                    self.row_filter = []
+                elif operator == OR:
+                    self.row_filter = []
 
             return self.row_filter
         except ValueError as e:
@@ -147,9 +157,6 @@ class DefaultOperator():
         summary of query results - filters
         '''
         column_name   = self.layer.get('column_name')
-#        if column_name=='LEG_CATEGORY':
-#            import ipdb; ipdb.set_trace()
-
         _operator_result = self._get_overlay_result(column_name)
         #return _operator_result
         return list(set(_operator_result))
@@ -159,7 +166,6 @@ class DefaultOperator():
 #        returns grouped column_names response (equive to itertools.zip_longest())
 #        Returns --> list
 #        '''
-#        #import ipdb; ipdb.set_trace()
 #        proponent_items = self.layer.get('proponent_items')
 #        column_names = [i['answer'] for i in proponent_items if 'answer' in i and i['answer']]
 #        column_prefix = [i['prefix'] for i in proponent_items if 'prefix' in i and i['prefix']]
@@ -190,7 +196,6 @@ class DefaultOperator():
         column_prefix = [i['prefix'] for i in assessor_items if 'prefix' in i and i['prefix']]
 
         grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
-        #import ipdb; ipdb.set_trace()
 
         if column_prefix:
             grouped_res = [column_prefix[0]]  + grouped_res
@@ -234,7 +239,6 @@ class DefaultOperator():
 #        except Exception as e:
 #            logger.error(f'{e}')
 #
-#        #import ipdb; ipdb.set_trace()
 #        return proponent_text_str
 
 #    def assessor_answer(self):

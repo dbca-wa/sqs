@@ -31,7 +31,6 @@ class Command(BaseCommand):
         logger.info('Running command {}'.format(__name__))
 
         for layer in Layer.active_layers.all().order_by('id')[:6]:
-            #import ipdb; ipdb.set_trace()
             try:
                 # get layer from GeoServer and update SQS layer if changed.
                 new_layer = LayerLoader(name=layer.name, url=layer.url).load_layer()

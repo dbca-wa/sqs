@@ -133,7 +133,6 @@ class DisturbancePrefillData(object):
                         if item['type'] != 'label':
                             #sqs_dict = self.layer_query_helper.find_other(item)
                             sqs_dict = self.layer_query_helper.query_question(item, TEXT_WIDGETS)
-                            #import ipdb; ipdb.set_trace()
                             assessor_info = sqs_dict.get('assessor_info')
                             if sqs_dict.get('layer_details'):
                                 item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
@@ -209,7 +208,6 @@ class DisturbancePrefillData(object):
             sqs_values = sqs_dict.get('result')
             layer_details = sqs_dict.get('layer_details', [])
             for ld in layer_details:
-                #import ipdb; ipdb.set_trace()
                 self.layer_data.append(
                     dict(
                         name=ld['name'] if 'name' in ld else None,
@@ -224,7 +222,6 @@ class DisturbancePrefillData(object):
                         #sqs_data_basic=ld['question'],
                     ),
                 )
-            #import ipdb; ipdb.set_trace()
         except Exception as e:
             traceback.print_exc()
             logger.error(f'Error: {str(e)}')

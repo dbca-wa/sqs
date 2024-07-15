@@ -13,7 +13,6 @@ def belongs_to(user, group_name):
     :param group_name:
     :return:
     """
-    #import ipdb; ipdb.set_trace()
     belongs_to_value = cache.get('User-belongs_to'+str(user.id)+'group_name:'+group_name)
     if belongs_to_value:
         print ('From Cache - User-belongs_to'+str(user.id)+'group_name:'+group_name)

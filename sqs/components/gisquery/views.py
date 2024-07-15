@@ -316,7 +316,6 @@ class TestView(View):
 #        '''
 #        try:
 #
-#            import ipdb; ipdb.set_trace()
 #            data = request.POST.get('data')
 #            if data is None:
 #                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_details specified in Request'})
