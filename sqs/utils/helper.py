@@ -188,7 +188,7 @@ class DefaultOperator():
         if column_prefix:
             grouped_res = [column_prefix[0]]  + grouped_res
 
-        return '\n'.join(grouped_res).replace(',',', ')
+        return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
 
     def assessor_answer(self):
         assessor_items = self.layer.get('assessor_items')
@@ -200,7 +200,7 @@ class DefaultOperator():
         if column_prefix:
             grouped_res = [column_prefix[0]]  + grouped_res
 
-        return '\n'.join(grouped_res).replace(',',', ')
+        return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
 
 
 #    def proponent_answer(self):

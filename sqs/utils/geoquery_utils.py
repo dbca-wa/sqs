@@ -320,12 +320,13 @@ class DisturbanceLayerQueryHelper():
                                 assessor_answer=op.assessor_answer(),
                             )
                         layer_res.append(res)
+
+                        self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
+                        logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
+
                     else:
                         logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question} - {layer_name}')
                         expired = True
-
-                    self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
-                    logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
 
                 question_group_res.append(
                     dict(
@@ -339,7 +340,7 @@ class DisturbanceLayerQueryHelper():
 
         except Exception as e: 
             logger.error(e)
-            self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
+            #self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
 
 #        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
 #            import ipdb; ipdb.set_trace()
@@ -651,7 +652,6 @@ class DisturbanceLayerQueryHelper():
             grouped_resp_agg = ''
             proponent_resp_agg = ''
             assessor_resp_agg = ''
-            proponent_resp_agg = "<table><tr><th>Company</th></tr><tr><td>Alfreds Futterkiste</td></tr><tr><td>Centro comercial Moctezuma</td></tr></table>" + "\n\n"
             for idx, question in enumerate(processed_questions):
                 layer_details = []
                 for layer in question['layers']:
