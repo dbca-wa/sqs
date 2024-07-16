@@ -98,6 +98,20 @@ class DefaultOperator():
         Returns --> list of geo dataframe row indices where comparison ooperator returned True.
                     This list is used to filter to original self.overlay_gdf.
         '''
+
+        def get_filtered_idxs(pattern):
+            overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
+            #pattern = '*' + value.lower().strip().strip('*') + '*'
+            overlay_result_match = fnmatch.filter(overlay_result_lower, pattern)
+
+            if NOT_DIFFERENCE:
+                # Contains NOT
+                overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
+
+            # get index positions of found results in ORIG overlay_result list
+            return [overlay_result_lower.index(x) for x in overlay_result_match]
+
+
         try:
 
             NOT_DIFFERENCE = False
@@ -140,28 +154,12 @@ class DefaultOperator():
                         self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
 
                 elif operator == CONTAINS:
-                    
-                    overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
-                    value_contains_pattern = '*' + value.lower().strip().strip('*') + '*'
-                    overlay_result_match = fnmatch.filter(overlay_result_lower, value_contains_pattern)
-
-                    if NOT_DIFFERENCE:
-                        # Contains NOT
-                        overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
-
-                    # get index positions of found results in ORIG overlay_result list
-                    self.row_filter = [overlay_result_lower.index(x) for x in overlay_result_match]
+                    pattern = '*' + value.lower().strip().strip('*') + '*'
+                    self.row_filter = get_filtered_idxs(pattern)
 
                 elif operator == LIKE:
-                    overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
-                    overlay_result_match = fnmatch.filter(overlay_result_lower, value.lower().strip())
-
-                    if NOT_DIFFERENCE: 
-                        # Like NOT
-                        overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
-
-                    # get index positions of found results in ORIG overlay_result list
-                    self.row_filter = [overlay_result_lower.index(x) for x in overlay_result_match]
+                    pattern = value.lower().strip()
+                    self.row_filter = get_filtered_idxs(pattern)
 
                 elif operator == OR:
                     overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
