@@ -233,7 +233,6 @@ class DisturbanceLayerQueryHelper():
 
 #                question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
 #                if question_expiry is None or question_expiry >= today.date():
-                #if True:
                 layer_res = []
                 for layer in cddp_question['layers']:
                  
@@ -325,7 +324,7 @@ class DisturbanceLayerQueryHelper():
                         logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
 
                     else:
-                        logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question} - {layer_name}')
+                        logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question["masterlist_question"]["question"]} - {layer_name}')
                         expired = True
 
                 question_group_res.append(
@@ -450,14 +449,11 @@ class DisturbanceLayerQueryHelper():
                                 assessor_info=[],
                                 layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
                             )
-    #                        if label or value:
-    #                            # return first match found
-    #                            return response
 
-                            #break
                             return response
                         else:
-                            logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer details["layer_name"]')
+                            #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer details["layer_name"]')
+                            pass
 
         except Exception as e:
             logger.error(f'RADIOBUTTON: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -498,11 +494,9 @@ class DisturbanceLayerQueryHelper():
                             details = raw_data.pop('layer_details', None)
                             # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
                             layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
-
-                            #break
                         else:
-                            #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {question["operator_response"]} not found from layer {details["layer_name"]}')
-                            logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer layer["layer_details"]')
+                            #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer layer["layer_details"]')
+                            pass
 
             response =  dict(
                 result=result,
@@ -559,10 +553,10 @@ class DisturbanceLayerQueryHelper():
                             #layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
                             layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
                         )
-                        #break
                         return response
                     else:
-                        logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer details["layer_name"]')
+                        i#logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer details["layer_name"]')
+                        pass
 
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -610,10 +604,10 @@ class DisturbanceLayerQueryHelper():
                             assessor_info=[],
                             layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
                         )
-                        #break
                         return response
                     else:
-                        logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer {details["layer_name"]}')
+                        #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer {details["layer_name"]}')
+                        pass
 
         except Exception as e:
             logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question["question"][:25]}\'\n{e}')
@@ -709,7 +703,7 @@ class DisturbanceLayerQueryHelper():
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
-        print(f'response: {response}')
+        #print(f'response: {response}')
         return response
 
 

@@ -194,8 +194,8 @@ class DefaultOperator():
     def proponent_answer(self):
         visible_to_proponent = self.layer.get('visible_to_proponent', False)
         proponent_items = self.layer.get('proponent_items')
-        column_names = [i['answer'] for i in proponent_items if 'answer' in i and i['answer']]
-        column_prefix = [i['prefix'] for i in proponent_items if 'prefix' in i and i['prefix']]
+        column_names = [i['answer'].strip() for i in proponent_items if 'answer' in i and i['answer']]
+        column_prefix = [i['prefix'].strip() for i in proponent_items if 'prefix' in i and i['prefix']]
 
         grouped_res = []
         if visible_to_proponent:
@@ -204,18 +204,20 @@ class DefaultOperator():
         if column_prefix:
             grouped_res = [column_prefix[0]]  + grouped_res
 
+        grouped_res = list(dict.fromkeys(grouped_res)) # unique entries, maintain order
         return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
 
     def assessor_answer(self):
         assessor_items = self.layer.get('assessor_items')
-        column_names = [i['answer'] for i in assessor_items if 'answer' in i and i['answer']]
-        column_prefix = [i['prefix'] for i in assessor_items if 'prefix' in i and i['prefix']]
+        column_names = [i['answer'].strip() for i in assessor_items if 'answer' in i and i['answer']]
+        column_prefix = [i['prefix'].strip() for i in assessor_items if 'prefix' in i and i['prefix']]
 
         grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
 
         if column_prefix:
             grouped_res = [column_prefix[0]]  + grouped_res
 
+        grouped_res = list(dict.fromkeys(grouped_res)) # unique entries, maintain order
         return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
 
 
