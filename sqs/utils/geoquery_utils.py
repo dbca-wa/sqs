@@ -555,7 +555,7 @@ class DisturbanceLayerQueryHelper():
                         )
                         return response
                     else:
-                        i#logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer details["layer_name"]')
+                        #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer details["layer_name"]')
                         pass
 
         except Exception as e:
