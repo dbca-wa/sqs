@@ -209,7 +209,7 @@ class DefaultOperator():
 
     def assessor_answer(self):
         assessor_items = self.layer.get('assessor_items')
-        column_names = [i['answer'].strip() for i in assessor_items if 'answer' in i and i['answer']]
+        column_names = [i['info'].strip() for i in assessor_items if 'info' in i and i['info']]
         column_prefix = [i['prefix'].strip() for i in assessor_items if 'prefix' in i and i['prefix']]
 
         grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')

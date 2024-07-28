@@ -23,7 +23,7 @@ RUN apt-get install --no-install-recommends -y wget git libmagic-dev gcc binutil
 RUN apt-get install --no-install-recommends -y libpq-dev patch
 RUN apt-get install --no-install-recommends -y postgresql-client mtr
 RUN apt-get install --no-install-recommends -y sqlite3 vim postgresql-client ssh htop
-RUN apt-get install --no-install-recommends -y graphviz libgraphviz-dev pkg-config run-one virtualenv
+RUN apt-get install --no-install-recommends -y graphviz libgraphviz-dev pkg-config run-one virtualenv software-properties-common
 #RUN ln -s /usr/bin/python3 /usr/bin/python 
 #RUN ln -s /usr/bin/pip3 /usr/bin/pip
 #RUN pip install --upgrade pip
@@ -31,6 +31,11 @@ RUN apt-get install --no-install-recommends -y graphviz libgraphviz-dev pkg-conf
 # GDAL
 #RUN wget -O /tmp/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl https://github.com/girder/large_image_wheels/raw/wheelhouse/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=e2fe6cfbab02d535bc52c77cdbe1e860304347f16d30a4708dc342a231412c57
 #RUN pip install /tmp/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+
+#RUN add-apt-repository ppa:deadsnakes/ppa && \
+#apt-get update && \
+#apt-get install --no-install-recommends -y python3.11 python3.11-dev python3.11-distutils && \
+#ln -s /usr/bin/python3.11 /usr/bin/python 
 
 RUN groupadd -g 5000 oim
 RUN useradd -g 5000 -u 5000 oim -s /bin/bash -d /app
@@ -60,6 +65,7 @@ RUN chmod 755 /bin/scheduler.py
 FROM builder_base_sqs as python_libs_sqs
 WORKDIR /app
 USER oim
+#RUN virtualenv -p python3.11 /app/venv
 RUN virtualenv /app/venv
 ENV PATH=/app/venv/bin:$PATH
 COPY --chown=oim:oim requirements.txt ./

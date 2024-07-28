@@ -1,12 +1,14 @@
 Django~=3.2.0
 GDAL==3.8.4
 #Django==3.2.23
-django-extensions==1.9.8
+#django-extensions==1.9.8
+django-extensions==3.2.3
 #git+https://github.com/dbca-wa/dpaw-utils.git@0.4.2#egg=dpaw-utils
 git+https://github.com/xzzy/webtemplate.git#egg=webtemplate_dbca
 git+https://github.com/dbca-wa/dbca-utils@1.1.1#egg=dbca-utils
 psycopg2-binary==2.9.9
-ipython==7.19.0
+#ipython==7.19.0
+#ipython==8.26.0
 django-utils-six==2.0
 social-auth-app-django==2.1.0
 git+https://github.com/scottp-dpaw/social-core.git@email_fix#egg=social-auth-core
@@ -31,8 +33,8 @@ json_checker==2.0.0
 unicodecsv==0.14.1
 
 # Needed for shell_plus crash issue
-jedi==0.17.2
-parso==0.7.1
+jedi==0.19.1
+parso==0.8.4
 
 # next packages required for geopandas
 # rtree requires 'sudo apt install libspatialindex-dev'

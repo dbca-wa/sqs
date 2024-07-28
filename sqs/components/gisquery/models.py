@@ -233,6 +233,18 @@ class ActiveQueueManager(models.Manager):
         earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
         return super().get_queryset().filter(status=Task.STATUS_CREATED, created__gte=earliest_date)
 
+class ActiveRunningManager(models.Manager):
+    ''' filter queued tasks '''
+    def get_queryset(self):
+        return super().get_queryset().filter(status=Task.STATUS_RUNNING)
+
+
+class ActiveProcessingManager(models.Manager):
+    ''' filter queued and running tasks and omit old (stale) queued tasks '''
+    def get_queryset(self):
+        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
+        return super().get_queryset().filter(status__in=[Task.STATUS_CREATED, Task.STATUS_CREATED], created__gte=earliest_date)
+
 
 class Task(RevisionedMixin):
 
@@ -283,6 +295,8 @@ class Task(RevisionedMixin):
 
     objects = models.Manager()
     queued_jobs = ActiveQueueManager()
+    running_jobs = ActiveRunningManager()
+    processing_jobs = ActiveProcessingManager()
 
     class Meta:
         app_label = 'sqs'

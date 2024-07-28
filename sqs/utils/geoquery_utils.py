@@ -346,19 +346,6 @@ class DisturbanceLayerQueryHelper():
 
         return question_group_res
 
-    def get_processed_question(self, question, widget_type):
-        ''' Gets or Sets processed (spatial_join executed) question from cache 
-            NOTE: processed questions caching not implemented
-        '''
-        processed_questions = []
-        try:
-            processed_questions = self.spatial_join_gbq(question, widget_type)
-        except Exception as e:
-            logger.error(traceback.print_exc())
-            logger.error(f'Error Searching Question combination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
-
-        return processed_questions
-
     def query_question(self, item, answer_type):
 
         def set_metric_result(response):
@@ -425,7 +412,8 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
@@ -476,7 +464,8 @@ class DisturbanceLayerQueryHelper():
             item_options    = item['children']
 
             item_options_dict = [dict(name=i['name'], label=i['label']) for i in item_options]
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
@@ -522,7 +511,8 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
 #            if len(processed_questions) != 1:
 #                # for multi-select questions, there must be only one question
 #                logger.error(f'SELECT: For select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
@@ -576,7 +566,8 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
 #            if len(processed_questions) != 1:
 #                # for multi-select questions, there must be only one question
 #                logger.error(f'MULTI-SELECT: For multi-select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
@@ -635,7 +626,8 @@ class DisturbanceLayerQueryHelper():
             schema_section  = item['name']
             schema_label    = schema_question
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 

@@ -3,6 +3,7 @@ import os
 import json
 
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper
+from sqs.utils.schema_search  import SchemaSearch
 #from sqs.utils.helper  import SchemaSearch
 from sqs.exceptions import LayerProviderException
 
@@ -19,6 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 class DisturbanceLayerQuery(object):
+    '''
+    DAS API call is saved in RequestLayerLog instance. 
+
+    The query() can be run manually  ALL masterlist_questions in DAS payload
+        from sqs.utils.das_schema_utils import DisturbanceLayerQuery
+        rl = LayerRequestLog.objects.filter(app_id=1944).first()
+        dlq = DisturbanceLayerQuery(rl.data['masterlist_questions'], rl.data['geojson'], rl.data['proposal'])
+        result = dlq.query()
+
+    OR the query can be run manually for a single masterlist_question in the list of DAS payeload
+        from sqs.utils.das_schema_utils import DisturbanceLayerQuery
+        rl = LayerRequestLog.objects.filter(app_id=1944).first()
+        masterlist_question = rl.data['masterlist_questions'][5]
+        dlq = DisturbanceLayerQuery([masterlist_question], rl.data['geojson'], rl.data['proposal'])
+        result = dlq.query()
+    '''
 
     def __init__(self, masterlist_questions, geojson, proposal):
         self.lq_helper = DisturbanceLayerQueryHelper(masterlist_questions, geojson, proposal)
@@ -48,9 +65,11 @@ class DisturbancePrefillData(object):
 
     def __init__(self, layer_query_helper):
         self.layer_query_helper = layer_query_helper
-        orig_data = self.layer_query_helper.proposal.get('data')
+        self.orig_data = self.layer_query_helper.proposal.get('data')
+        self.search_schema = SchemaSearch(self.orig_data)
 
         self.data = {}
+        #self.data = orig_data[0]
         self.layer_data = []
         self.add_info_assessor = {}
 
@@ -78,8 +97,12 @@ class DisturbancePrefillData(object):
             if item['type'] ==CHECKBOX:
                 if sqs_value:
                     for val in sqs_value:
+                        existing_value = self.search_schema.search_data(item['name'])
                         if val.casefold()==item['label'].casefold():
                             item_data[item['name']]='on'
+
+                        #elif existing_value is not None:
+                        #    item_data[item['name']] = existing_value
 
             elif item['type'] == 'file':
                 #print('file item', item)
@@ -90,12 +113,17 @@ class DisturbancePrefillData(object):
                         
                         # don't overwrite if propsal['data'] already has a value set
                         #sqs_dict = self.layer_query_helper.find_multiselect(item)
+
+                        existing_value = self.search_schema.search_data(item['name'])
                         sqs_dict = self.layer_query_helper.query_question(item, MULTI_SELECT)
                         sqs_values = sqs_dict.get('result')
-                        self._update_layer_info(sqs_dict)
+
+                        #self._update_layer_info(sqs_dict)
                         
                         if sqs_values:
+                            ''' response from SQS Intersection takes precedence over proponent answer '''
                             self._update_assessor_info(item, sqs_dict)
+                            self._update_layer_info(sqs_dict)
 
                             # Next Line: resetting to None before refilling - TODO perhaps run for all within __init__()
                             item_data[item['name']]=[]
@@ -106,6 +134,9 @@ class DisturbancePrefillData(object):
                                         if val.casefold()==op['label'].casefold():
                                             item_data[item['name']].append(op['value'])
 
+                        elif existing_value is not None:
+                            item_data[item['name']] = existing_value
+
                     elif item['type'] in [RADIOBUTTONS, SELECT]:
                         #Get value from SQS
                         if item['type'] == SELECT:
@@ -115,9 +146,14 @@ class DisturbancePrefillData(object):
                             #sqs_dict = self.layer_query_helper.find_radiobutton(item)
                             sqs_dict = self.layer_query_helper.query_question(item, RADIOBUTTONS)
 
+                        existing_value = self.search_schema.search_data(item['name'])
+#                        if existing_value:
+#                            import ipdb; ipdb.set_trace()
                         sqs_value = sqs_dict.get('result')
-                        layer_details = sqs_dict.get('layer_details')
+                        #layer_details = sqs_dict.get('layer_details')
+
                         if sqs_value:
+                            ''' response from SQS Intersection takes precedence over proponent answer '''
                             self._update_assessor_info(item, sqs_dict)
                             self._update_layer_info(sqs_dict)
 
@@ -127,24 +163,36 @@ class DisturbancePrefillData(object):
                                     if sqs_value.casefold()==op['label'].casefold():
                                         item_data[item['name']]=op['value']
                                         break
+                        elif existing_value is not None:
+                            item_data[item['name']] = existing_value
+
 
                     elif item['type'] in TEXT_WIDGETS: #['text', 'text_area']:
+#                        import ipdb; ipdb.set_trace()
                         #All the other types e.g. text_area, text, date (except label).
                         if item['type'] != 'label':
-                            #sqs_dict = self.layer_query_helper.find_other(item)
+                            existing_value = self.search_schema.search_data(item['name'])
                             sqs_dict = self.layer_query_helper.query_question(item, TEXT_WIDGETS)
-                            assessor_info = sqs_dict.get('assessor_info')
-                            if sqs_dict.get('layer_details'):
-                                item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
-                            self._update_layer_info(sqs_dict)
 
-                            #if sqs_values:
-                            if assessor_info:
-                                self._update_assessor_info(item, sqs_dict)
-                                #self._update_layer_info(sqs_dict)
+                            if sqs_dict and sqs_dict.get('layer_details'):
+                                ''' response from SQS Intersection takes precedence over proponent answer '''
+                                assessor_info = sqs_dict.get('assessor_info')
+                                #if sqs_dict.get('layer_details'):
+                                #    item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
+                                item_data[item['name']] = sqs_dict.get('layer_details')[0]['label']
+                                self._update_layer_info(sqs_dict)
+
+                                if assessor_info:
+                                    self._update_assessor_info(item, sqs_dict)
+
+                            elif existing_value is not None:
+                                item_data[item['name']] = existing_value
                     else:
                         #All the other types e.g. date, number etc (except label).
-                        pass
+                        existing_value = self.search_schema.search_data(item['name'])
+                        if existing_value:
+                            item_data[item['name']] = existing_value
+                        #pass
         else:
             if 'repetition' in item:
                 item_data = self.generate_item_data_shape(extended_item_name,item,item_data,1,suffix)
@@ -157,13 +205,21 @@ class DisturbancePrefillData(object):
                     # 3. request response for all checkbox's ie. send item['children'][all]['label']. 
                     #    SQS will return a list of checkbox's answersfound eg. ['National park', 'Nature reserve']
 
-                    #sqs_dict = self.layer_query_helper.find_checkbox(item)
                     sqs_dict = self.layer_query_helper.query_question(item, CHECKBOX)
                     sqs_values = sqs_dict.get('result')
                     if sqs_values:
                         self._update_assessor_info(item, sqs_dict)
                         item_layer_data = self._update_layer_info(sqs_dict)
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix, sqs_values)
+
+                        existing_values_dict = self.search_schema.search_data(item['name'], checkbox=True)
+                        if existing_values_dict:
+                            # append SQS response values to existing values.
+                            # SQS response query values will overwrite existing values, in case of duplicates
+                            sqs_values_dict = item_data[item['name']][0]
+                            existing_values_dict.update(sqs_values_dict) 
+                            item_data[item['name']] = [existing_values_dict] 
+
                 else:
                     item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
 

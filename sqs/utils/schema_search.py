@@ -12,14 +12,18 @@ class SchemaSearch():
 
     def search(self, search_list):
         """
+        Search proposal schema for flattened key and corresponding value given flattened_key 
         To run:
-            from sqs.utils.helper import search
-            search(p.data, ['BRM', 'JM 1'])
-            search(p.data, search_list=['finalSection.Section8-0', 'tenureSection.Section1-0.Section1-0-3'])
-                output:
-                    {'finalSection.Section8-0': 'yes',
-                     'tenureSection.Section1-0.Section1-0-3': 'on'}
+            from sqs.components.gisquery.models import LayerRequestLog
+            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+            p_data = rl.data['proposal']['data']
+
+            from sqs.utils.schema_search  import SchemaSearch
+            search_schema = SchemaSearch(p_data)
+            search_schema.search(['1ProposalSummary1.Section1-0'])
+            -->{'1ProposalSummary1.Section1-0': 'JM Test'}
         """
+
         result = {}
         flat_dict = self._flatten(self.dictionary)
         for k, v in flat_dict.items():
@@ -28,6 +32,111 @@ class SchemaSearch():
                     result.update( {k: v} )
 
         return result
+
+    def search_data(self, search_str):
+        """
+        Search proposal data for component answer given name (section_name)
+        To run:
+            from sqs.components.gisquery.models import LayerRequestLog
+            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+            p_data = rl.data['proposal']['data']
+
+            from sqs.utils.schema_search  import SchemaSearch
+            search_schema = SchemaSearch(p_data)
+            search_schema.search_data('Section1-0')
+            --> 'Test Response'
+        """
+        flat_dict = self._flatten(self.dictionary)
+        for k, v in flat_dict.items():
+            try:
+                if search_str.lower() in k.lower():
+                    key_list = k.split('.')
+                    #name = key_list[-1]
+                    if search_str.lower() in [x.lower() for x in key_list]:
+                        return v.strip() if isinstance(v, str) else v
+            except:
+                pass
+
+        return None
+
+    def search_data(self, search_str, checkbox=False):
+        """
+        Search proposal data for component answer given name (section_name)
+        To run:
+            from sqs.components.gisquery.models import LayerRequestLog
+            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+            p_data = rl.data['proposal']['data']
+
+            from sqs.utils.schema_search  import SchemaSearch
+            search_schema = SchemaSearch(p_data)
+            search_schema.search_data('Section1-0')
+            --> 'Test Response'
+        """
+        res = {}
+        flat_dict = self._flatten(self.dictionary)
+        for k, v in flat_dict.items():
+            try:
+                if search_str.lower() in k.lower():
+                    key_list = k.split('.')
+                    key = key_list[-1]
+                    if search_str.lower() in [x.lower() for x in key_list]:
+                        if checkbox:
+                            res[key] = v.strip() if isinstance(v, str) else v
+                        else:
+                            return v.strip() if isinstance(v, str) else v
+            except:
+                pass
+
+        return res
+
+#    def _search_data(self, search_str):
+#        """
+#        Search proposal data for component answer given name (section_name)
+#        To run:
+#            from sqs.components.gisquery.models import LayerRequestLog
+#            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+#            p_data = rl.data['proposal']['data']
+#
+#            from sqs.utils.schema_search  import SchemaSearch
+#            search_schema = SchemaSearch(p_data)
+#            search_schema.search_data('Section1-0')
+#            --> 'Test Response'
+#        """
+#        def find_str(_list, _str):
+#            ''' find sub-key str in flattened dot delimited key 
+#                Eg.
+#                    key_list = 1ProposalSummary1.Section1-0.something'.split('.')
+#                    --> ['1ProposalSummary1', 'Section1-0', 'something']
+#
+#                    find_str_loc(key_list, 'Section1-0')
+#                    --> 'Section1-0'
+#            '''
+#            res = None
+#            try:
+#                idx = _list.index(_str)
+#                res = _list[idx]
+#            except Exception as e:
+#                pass
+#
+#            return res
+#
+#
+#        import ipdb; ipdb.set_trace()
+#        flat_dict = self._flatten(self.dictionary)
+#        for k, v in flat_dict.items():
+#            if search_str.lower() in k.lower():
+#                key_list = k.split('.')
+#                #name = find_str(key_list, search_str)
+#                try:
+#                    if search_str in [x.lower() for x in key_list]:
+#                        #import ipdb; ipdb.set_trace()
+#                        return v.strip() if isinstance(v, str) else v
+#                except:
+#                    import ipdb; ipdb.set_trace()
+#                    pass
+#
+#        return None
+
 
     def get_flat_dict(self):
         """

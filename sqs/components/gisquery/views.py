@@ -233,27 +233,26 @@ class DefaultLayerProviderView(View):
                 2. creates/updates layer from Geoserver
         '''
         try:
-            layer_details = json.loads(request.POST['layer_details'])
+            layer_name = request.POST['layer_name']
+            layer_url = request.POST['layer_url']
             system = request.POST['system']
 
-            layer_name = layer_details.get('layer_name')
-            url = layer_details.get('layer_url')
-            logger.info(f'Layer Create/Update request from System {system}: {layer_name} - {url}')
+            logger.info(f'Layer Create/Update request from System {system}: {layer_name} - {layer_url}')
 
             if layer_name is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
-            if url is None:
+            if layer_url is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer url specified in Request'})
 
             qs_layer = self.queryset.filter(name=layer_name)
             cur_version = qs_layer[0].version if qs_layer.exists() else None
-            layer_info, layer_gdf = DbLayerProvider(layer_name, url).get_layer_from_geoserver()
+            layer_info, layer_gdf = DbLayerProvider(layer_name, layer_url).get_layer_from_geoserver()
 
         except LayerProviderException as e:
             logger.error(traceback.print_exc())
 #            if 'Layer exceeds max' in str(e):
 #                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
-            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver/Source if layer/GeoJSON exists. URL: {url}'})
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver/Source if layer/GeoJSON exists. URL: {layer_url}'})
 
         except Exception as e:
             logger.error(traceback.print_exc())
