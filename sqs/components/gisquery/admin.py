@@ -11,7 +11,7 @@ class LayerAdmin(admin.ModelAdmin):
     list_display = ["name", "url", "layer_version", "active"] #, 'link_to_geojson']
     list_filter = ["active"]
     search_fields = ['name__icontains']
-    readonly_fields = ('geojson_file',)
+    #readonly_fields = ('geojson_file',)
     #exclude = ['geojson']
 
     def layer_version(self, obj):

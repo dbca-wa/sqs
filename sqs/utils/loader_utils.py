@@ -11,13 +11,15 @@ import json
 import os
 import sys
 from datetime import datetime
+import psutil
 
 from sqs.components.gisquery.models import Layer
 from sqs.exceptions import LayerProviderException
-from sqs.utils import DATETIME_FMT, DATETIME_T_FMT
+from sqs.utils import DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
 
 import logging
 logger = logging.getLogger(__name__)
+logger_stats = logging.getLogger('sys_stats')
 
 
 class LayerLoader():
@@ -108,8 +110,14 @@ class LayerLoader():
 
                         self.data = dict(status=HTTP_304_NOT_MODIFIED, data=f'Layer not updated (no change to existing layer in DB): {self.name}')
                     else:
-                        dt_str = datetime.now().strftime(DATETIME_T_FMT)
-                        filename = f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
+                        #dt_str = datetime.now().strftime(DATETIME_T_FMT)
+                        dt_str = datetime.now().strftime(DATE_FMT)
+                        path = f'{settings.DATA_STORE}/{self.name}/{dt_str}'
+                        if not os.path.exists(path):
+                            os.makedirs(path)
+
+                        #filename = f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
+                        filename = f'{path}/{self.name}.geojson'
                         with open(filename, 'w') as f:
                             json.dump(geojson, f)
 
@@ -133,8 +141,14 @@ class LayerLoader():
                         layer.save()
                 else:
                     # Layer does not exist in DB, so create
-                    dt_str = datetime.now().strftime(DATETIME_T_FMT)
-                    filename=f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
+                    #filename=f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
+                    #dt_str = datetime.now().strftime(DATETIME_T_FMT)
+                    dt_str = datetime.now().strftime(DATE_FMT)
+                    path=f'{settings.DATA_STORE}/{self.name}/{dt_str}'
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+
+                    filename=f'{path}/{self.name}.geojson'
                     with open(filename, 'w') as f:
                         #json.dump(geojson, f, ensure_ascii=False)
                         json.dump(geojson, f)
@@ -212,6 +226,7 @@ class DbLayerProvider():
         try:
             # try getting from cache
             logger.info(f'Retrieving Layer {self.layer_name} ...')
+            print_system_memory_stats()
 #            layer_info, layer_gdf = self.get_from_cache()
 #            if layer_gdf is not None:
 #                logger.info(f'Layer retrieved from cache {self.layer_name}')
@@ -228,11 +243,13 @@ class DbLayerProvider():
             if Layer.active_layers.filter(name=self.layer_name).exists():
                 # try getting from DB
                 layer_info, layer_gdf = self.get_from_db()
-                logger.info(f'Layer retrieved from DB {self.layer_name}')
+                if layer_gdf is not None:
+                    logger.info(f'Layer retrieved from DB {self.layer_name}')
             elif from_geoserver:
                 # Get from Geoserver, store in DB and set in cache
                 layer_info, layer_gdf = self.get_layer_from_geoserver()
-                logger.info(f'Layer retrieved from GeoServer {self.layer_name} - from:\n{self.url}')
+                if layer_gdf is not None:
+                    logger.info(f'Layer retrieved from GeoServer {self.layer_name} - from:\n{self.url}')
 
 
         except Exception as e:
@@ -262,6 +279,9 @@ class DbLayerProvider():
 
             loader = LayerLoader(url=self.url, name=self.layer_name)
             layer = loader.load_layer(filename)
+            if self.exclude_layer(layer):
+                return None, None 
+
             layer_gdf = layer.to_gdf
             layer_info = self.layer_info(layer)
 
@@ -279,6 +299,9 @@ class DbLayerProvider():
         try:
             loader = LayerLoader(url=self.url, name=self.layer_name)
             layer = loader.load_layer()
+            if self.exclude_layer(layer):
+                return None, None 
+
             layer_gdf = layer.to_gdf
             layer_info = self.layer_info(layer)
             #self.set_cache(layer_info, layer_gdf)
@@ -299,6 +322,9 @@ class DbLayerProvider():
           
         try:
             layer = Layer.objects.get(name=self.layer_name)
+            if self.exclude_layer(layer):
+                return None, None 
+
             layer_gdf = layer.to_gdf
 
             layer_info = self.layer_info(layer)
@@ -343,12 +369,17 @@ class DbLayerProvider():
             layer_modified_date=layer.modified_date.strftime(DATETIME_FMT),
         )
 
-    def layer_size(self):
+    def layer_size(self, layer_obj):
         ''' Returns the GeoJSON size in MB '''
-        #return round(sys.getsizeof(json.dumps(self.layer_geojson))/1024**2, 2)
-        return 1
+        return round(layer_obj.geojson_file.size/1024**2, 2)
 
 
+    def exclude_layer(self, layer_obj):
+        '''  Exclude layer if layer size (in MB) exceeds settings.MAX_GEOJSON_SIZE '''
+        if settings.MAX_GEOJSON_SIZE is not None and self.layer_size(layer_obj) > settings.MAX_GEOJSON_SIZE:
+            logger.warn(f'Excluding layer {layer_obj.name} because it exceeds max. size {settings.MAX_GEOJSON_SIZE}MB')
+            return True
+        return False
 
 def get_layer_size(layers=None):
     ''' Prints Cached Layer Sizes in MB 
@@ -356,6 +387,9 @@ def get_layer_size(layers=None):
         from sqs.utils.loader_utils import get_layer_size
         get_layer_size()
         get_layer_size(['CPT_DBCA_LEGISLATED_TENURE'])
+
+        List files by size, in KB/MB
+            ls -lrshS ../data_store
     '''
     l= []
     if layers is None:
@@ -371,3 +405,15 @@ def get_layer_size(layers=None):
     
     for item in l:
         print(f'{item["size"]}\t{item["layer_name"]}')
+
+
+def print_system_memory_stats():
+    info = psutil.virtual_memory()
+    mem_avail_perc = round(psutil.virtual_memory().available * 100 / psutil.virtual_memory().total, 2)
+    mem_used_perc = round(psutil.virtual_memory().percent, 2)
+    cpu_used_perc = round(psutil.cpu_percent(), 2)
+
+    #logger.info(f'{info}\nMem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
+    #logger.info(f'Mem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
+    logger_stats.info(f'Mem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
+

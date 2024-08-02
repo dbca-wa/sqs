@@ -83,6 +83,22 @@ def geojson_file_path(instance, filename):
     # file will be uploaded to <settings.DATA_STORE>/<filename>
     return f'{settings.DATA_STORE}/{filename}'
 
+#class GeoJsonFile(RevisionedMixin):
+#    layer = models.ForeignKey(
+#        'Layer',
+#        related_name='geojson_files',
+#        on_delete=models.CASCADE
+#    )
+#    index = models.IntegerField(editable=False, default=0)
+#    geojson_file= models.FileField(upload_to=geojson_file_path)
+#
+#    class Meta:
+#        app_label = 'sqs'
+#        unique_together = ('geojson_file', 'index')
+#
+#    def __str__(self):
+#        return f'{self.geojson_file}_{self.index}'
+
 class Layer(RevisionedMixin):
 
     name = models.CharField(max_length=128, unique=True)
@@ -104,6 +120,10 @@ class Layer(RevisionedMixin):
     @property
     def attributes (self):
         return [attr_val['attribute'] for attr_val in self.attr_values]
+
+    @property
+    def geojson_file(self):
+        return self.geojson_files[0]
 
     @property
     @traceback_exception_handler

@@ -76,8 +76,10 @@ class DisturbanceLayerQueryHelper():
             logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly}.')
 
         try:
-            buffer_size = layer['buffer']
-            if buffer_size:
+            # if buffer specified in layer definition, increase the perimeter by the buffer amount. Otherwise, 
+            # reduce the perimeter by settings.DEFAULT_BUFFER
+            buffer_size = layer['buffer'] if layer['buffer'] else settings.DEFAULT_BUFFER
+            if buffer_size and buffer_size != 0:
                 crs_orig =  mpoly.crs.srs
 
                 # convert to new projection so that buffer can be added in meters
@@ -273,7 +275,7 @@ class DisturbanceLayerQueryHelper():
                         if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
                             mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
 
-                        # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetetric_difference' we will
+                        # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetric_difference' we will
                         # compute 'intersection' and filter the intersected features from the layer_gdf.
                         # That is, for both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
                         overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
@@ -298,7 +300,7 @@ class DisturbanceLayerQueryHelper():
                         # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
                         operator_result = op.operator_result()
-                        logger.info(f'Operator Result: {operator_result}')
+                        logger.info(f'Operator Result: {operator_result}'[:200])
                         condition = f'{column_name} -- {operator}'
                         if operator != 'IsNotNull':
                             condition += f' -- {value}'

@@ -52,7 +52,8 @@ CHECK_IP = env('CHECK_IP', True)
 # Use 'epsg:4326' as projected coordinate system - 'epcg:4326' coordinate system is in meters (Then the buffer distance will be in meters)
 CRS = env('CRS', 'epsg:4326')
 CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
-GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
+#GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
+DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in meters
 MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
@@ -257,6 +258,14 @@ LOGGING = {
             'formatter': 'verbose',
             'maxBytes': 5242880
         },
+        'debug': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'sys_stats.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5242880
+        },
+
     },
     'loggers': {
         '': {
@@ -277,14 +286,20 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO'
         },
+        'sys_stats': {
+            'handlers': ['debug'],
+            'level': 'INFO'
+        },
+
     }
 }
 
 # Additional logging for sqs
-LOGGING['loggers']['sqs'] = {
-            'handlers': ['file'],
-            'level': 'INFO'
-        }
+#LOGGING['loggers']['sqs'] = {
+#            'handlers': ['file'],
+#            'level': 'INFO'
+#        }
+
 DEFAULT_AUTO_FIELD='django.db.models.AutoField'
 
 # for testing
