@@ -2,6 +2,7 @@ from django.contrib.gis.geos import GEOSGeometry, Polygon, MultiPolygon
 from django.conf import settings
 from django.db import transaction
 from django.core.cache import cache
+from django.db.models import Max
 
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_202_ACCEPTED, HTTP_304_NOT_MODIFIED, HTTP_404_NOT_FOUND
 
@@ -11,15 +12,67 @@ import json
 import os
 import sys
 from datetime import datetime
+from dateutil import parser
 import psutil
 
-from sqs.components.gisquery.models import Layer
+from sqs.components.gisquery.models import Layer, GeoJsonFile
 from sqs.exceptions import LayerProviderException
 from sqs.utils import DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
 
 import logging
 logger = logging.getLogger(__name__)
 logger_stats = logging.getLogger('sys_stats')
+
+
+#def layer_latest(layer_name):
+#    qs = Layer.objects.filter(name=layer_name)
+#    if qs.exists():
+#        return qs.order_by('-version')[0] if qs.exists() else Layer.objects.none()
+
+class RecentLayerProvider():
+    """
+    Get a list of recently updated layers from KB - within last <days_ago>. Cross check if they also exist in SQS, return those that do exist.
+
+    Usage:
+        from sqs.utils.loader_utils import RecentLayerProvider
+        layers_to_update = RecentLayerProvider(days_ago=7).get_layers_to_update()
+    """
+
+    def __init__(self, days_ago=7):
+        self.days_ago = days_ago
+        
+    def _recently_updated_layers(self):
+        ''' get a list of recently updated layers from KB - within last <days_ago>
+        '''
+        try:
+            #url = f'{settings.KB_RECENT_LAYERS_URL}{self.days_ago}'
+            url = settings.KB_RECENT_LAYERS_URL.format(self.days_ago)
+            res = requests.get('{}'.format(url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None, timeout=settings.REQUEST_TIMEOUT)
+            res.raise_for_status()
+            return res.json()
+        except Exception as e:
+            err_msg = f'Error getting recent layers from API Request {url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='api_recent_layer_retrieve_error' )
+
+    def get_layers_to_update(self):
+        ''' check which layers have been updated in KB (in last <n-days>), then cross-check with layers in SQS
+        '''
+        layers = []
+        for layer in self._recently_updated_layers():
+            layer_name = layer['name']
+            updated_at = parser.parse(layer['updated_at'])
+            #print(layer_name, updated_at)
+            qs = Layer.objects.filter(name=layer_name, modified_at__lt=updated_at)
+            if qs:
+                layers.append(layer_name)
+                #print(qs[0].name, qs[0].modified_at)
+        return layers
+
+#    def layer_is_unchanged(layer_name, days_ago):
+#       # TODO
+#       layers_to_update = get_layers_to_update(days_ago)
+#       return True if layer_name in layers_to_update else False
 
 
 class LayerLoader():
@@ -29,15 +82,18 @@ class LayerLoader():
     2. raw GeoJSON file
 
     Usage:
-        from sqs.utils.loader_utils import LayerLoader
-        l=LayerLoader(url,name)
+        from sqs.utils.loader_utils import LayerLoader, RecentLayerProvider
+        layers_to_update = RecentLayerProvider(days_ago=7).get_layers_to_update()
+        l=LayerLoader(name, layers_to_update)
         l.load_layer()
     """
 
-    def __init__(self, url='https://kmi.dbca.wa.gov.au/geoserver/cddp/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=cddp:dpaw_regions&maxFeatures=50&outputFormat=application%2Fjson', name='cddp:dpaw_regions'):
-        self.url = url
+    #def __init__(self, name='CPT_DBCA_REGIONS', layers_to_update=[]):
+    def __init__(self, name='CPT_DBCA_REGIONS'):
         self.name = name
-        self.data = ''
+        #self.layers_to_update = layers_to_update
+        #self.url = f'https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/{name}/layer/'
+        self.url = settings.KB_LAYER_URL.format(name)
         
     def retrieve_layer(self):
         """ get GeoJSON from GeoServer
@@ -69,12 +125,15 @@ class LayerLoader():
             logger.error(err_msg)
             raise LayerProviderException(err_msg, code='file_layer_retrieve_error' )
 
-
+    #def load_layer(self, filename=None, geojson=None, force_load=False):
     def load_layer(self, filename=None, geojson=None):
 
+        layer = None
+        if self.name in settings.KB_EXCLUDE_LAYERS:
+            logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')
+            return layer
+
         try:
-            #raise Exception('my exception')
-            layer = None
             if filename is not None:
                 # get GeoJSON from file
                 geojson = self.retrieve_layer_from_file(filename)
@@ -89,86 +148,37 @@ class LayerLoader():
 
             qs_layer = Layer.objects.filter(name=self.name)
             with transaction.atomic():
-                if len(qs_layer)==1:
-                    # check if this layer already exists in DB. If it does exist, 
-                    # check if there is a difference between existing layer and new layer from GeoServer.
-                    # Only save new layer if its different.
+                # create/update layer
+                dt_str = datetime.now().strftime(DATETIME_T_FMT)
+                path=f'{settings.DATA_STORE}/{self.name}/{dt_str}'
+                if not os.path.exists(path):
+                    os.makedirs(path)
 
-                    layer = qs_layer[0]
-                    layer_updated = False
-                    if layer_is_unchanged(layer_gdf1, layer.to_gdf):
-                        # no change in geojson
-                        if layer.active == False:
-                            # if not already active, set active
-                            layer.active = True
-                            layer_updated = True
+                filename=f'{path}/{self.name}.geojson'
+                with open(filename, 'w') as f:
+                    json.dump(geojson, f)
 
-                        if layer.url != self.url:
-                            # url in masterlist_question may have been updated!
-                            layer.url = True
-                            layer_updated = True
+                attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
 
-                        self.data = dict(status=HTTP_304_NOT_MODIFIED, data=f'Layer not updated (no change to existing layer in DB): {self.name}')
-                    else:
-                        #dt_str = datetime.now().strftime(DATETIME_T_FMT)
-                        dt_str = datetime.now().strftime(DATE_FMT)
-                        path = f'{settings.DATA_STORE}/{self.name}/{dt_str}'
-                        if not os.path.exists(path):
-                            os.makedirs(path)
+                attr_values = []
+                data = layer_gdf1[attributes].to_json()
+                for attr in attributes:
+                    values = list(set(json.loads(data)[attr].values()))
+                    attr_values.append(dict(attribute=attr, values=values))
 
-                        #filename = f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
-                        filename = f'{path}/{self.name}.geojson'
-                        with open(filename, 'w') as f:
-                            json.dump(geojson, f)
+                qs = Layer.objects.filter(name=self.name)
+                version = qs.aggregate(version_max=Max('version'))['version_max'] + 1 if qs else 0
 
-                        # save attr_values
-                        attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
-                        attr_values = []
-                        data = layer_gdf1[attributes].to_json()
-                        for attr in attributes:
-                            values = list(set(json.loads(data)[attr].values()))
-                            attr_values.append(dict(attribute=attr, values=values))
+                #layer = Layer.objects.create(name=self.name, version=version, url=self.url, attr_values=attr_values)
+                layer, created = Layer.objects.update_or_create(
+                    name=self.name,
+                    defaults={'version': version, 'url': self.url, 'attr_values': attr_values},
+                )
 
-                        layer.url = self.url
-                        layer.geojson_file = filename
-                        layer.attr_values = attr_values
-                        layer.active = True
+                geojson_file = GeoJsonFile.objects.create(layer=layer, geojson_file=filename)
 
-                        self.data = dict(status=HTTP_200_OK, data=f'Layer updated: {self.name}')
-                        layer_updated = True
-
-                    if layer_updated:
-                        layer.save()
-                else:
-                    # Layer does not exist in DB, so create
-                    #filename=f'{settings.DATA_STORE}/{self.name}_{dt_str}.geojson'
-                    #dt_str = datetime.now().strftime(DATETIME_T_FMT)
-                    dt_str = datetime.now().strftime(DATE_FMT)
-                    path=f'{settings.DATA_STORE}/{self.name}/{dt_str}'
-                    if not os.path.exists(path):
-                        os.makedirs(path)
-
-                    filename=f'{path}/{self.name}.geojson'
-                    with open(filename, 'w') as f:
-                        #json.dump(geojson, f, ensure_ascii=False)
-                        json.dump(geojson, f)
-
-                    #layer = Layer.objects.create(name=self.name, url=self.url, geojson=geojson)
-                    #layer_gdf = gpd.read_file(layer.geojson_file.path)
-                    attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
-                    #attr_values = [layer_gdf1[col].dropna().unique().tolist() for col in attributes]
-
-                    attr_values = []
-                    data = layer_gdf1[attributes].to_json()
-                    for attr in attributes:
-                        values = list(set(json.loads(data)[attr].values()))
-                        attr_values.append(dict(attribute=attr, values=values))
-
-                    layer = Layer.objects.create(name=self.name, url=self.url, geojson_file=filename, attr_values=attr_values)
-
-                    self.data = dict(status=HTTP_201_CREATED, data=f'Layer created: {self.name}')
-
-                logger.info(self.data)
+                msg = dict(status=HTTP_201_CREATED, data=f'Layer created/updated: {self.name}')
+                logger.info(msg)
 
         except Exception as e: 
             err_msg = f'Error getting layer from GeoServer {self.name} from:\n{self.url}\n{str(e)}'
@@ -178,15 +188,29 @@ class LayerLoader():
         return  layer
 
 
-def layer_is_unchanged(gdf1, gdf2):
-    try:
-        gdf1 = gdf1.reindex(sorted(gdf1.columns), axis=1)
-        gdf2 = gdf2.reindex(sorted(gdf2.columns), axis=1)
-        return gdf1.loc[:, ~gdf1.columns.isin(['id', 'md5_rowhash'])].equals(gdf2.loc[:, ~gdf2.columns.isin(['id', 'md5_rowhash'])])
-    except Exception as e:
-        logger.error(e)
+#def layer_is_unchanged(gdf1, gdf2):
+#    try:
+#        gdf1 = gdf1.reindex(sorted(gdf1.columns), axis=1)
+#        gdf2 = gdf2.reindex(sorted(gdf2.columns), axis=1)
+#        return gdf1.loc[:, ~gdf1.columns.isin(['id', 'md5_rowhash'])].equals(gdf2.loc[:, ~gdf2.columns.isin(['id', 'md5_rowhash'])])
+#    except Exception as e:
+#        logger.error(e)
+#
+#    return False
 
-    return False
+
+#def layer_exists(layer_name):
+#    ''' Check that the layer_obj exists in DB, and also that the file exists on file storage '''
+#    qs_layer = Layer.latest.filter(name=layer_name)
+#    if qs_layer.exists() and qs_layer[0].geojson_file is not None:
+#        return True
+#    return False   
+
+
+#def layer_is_unchanged(layer_name, days_ago):
+#    # TODO
+#    layers_to_update = get_layers_to_update(days_ago)
+#    return True if layer_name in layers_to_update else False
 
 
 
@@ -240,7 +264,8 @@ class DbLayerProvider():
 #                        layer_info, layer_gdf = self.get_layer_from_geoserver()
 #                        logger.info(f'Layer retrieved from GeoServer {self.layer_name} - from:\n{self.url}')
 
-            if Layer.active_layers.filter(name=self.layer_name).exists():
+            #if Layer.active_layers.filter(name=self.layer_name).exists():
+            if Layer.objects.filter(name=self.layer_name).exists():
                 # try getting from DB
                 layer_info, layer_gdf = self.get_from_db()
                 if layer_gdf is not None:
@@ -277,8 +302,8 @@ class DbLayerProvider():
 #                #self.set_cache(layer_info, layer_gdf)
 #                self.set_cache(layer_info, layer.geojson)
 
-            loader = LayerLoader(url=self.url, name=self.layer_name)
-            layer = loader.load_layer(filename)
+            loader = LayerLoader(name=self.layer_name)
+            layer = loader.load_layer(filename=filename, force_load=True)
             if self.exclude_layer(layer):
                 return None, None 
 
@@ -297,7 +322,7 @@ class DbLayerProvider():
         Returns: layer_info, layer_gdf
         '''
         try:
-            loader = LayerLoader(url=self.url, name=self.layer_name)
+            loader = LayerLoader(name=self.layer_name)
             layer = loader.load_layer()
             if self.exclude_layer(layer):
                 return None, None 

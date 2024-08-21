@@ -58,6 +58,11 @@ MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
 
+KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
+KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
+KB_LAYER_URL = KB_BASE_URL + 'catalogue/entries/{}/layer/'
+KB_EXCLUDE_LAYERS = env('KB_EXCLUDE_LAYERS', [])
+#KB_RECENT_LAYERS_URL = env('KB_RECENT_LAYERS_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/recent/?days_ago=')
 DATA_STORE = env('DATA_STORE', 'data_store') # MB
 if not os.path.exists(DATA_STORE):
     os.makedirs(DATA_STORE)

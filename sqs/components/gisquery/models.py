@@ -1,7 +1,7 @@
 #from django.db import models
 from django.contrib.gis.db import models
 #from django.contrib.postgres.fields.jsonb import JSONField
-from django.db.models import JSONField
+from django.db.models import JSONField, Max
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.postgres.aggregates.general import ArrayAgg
@@ -12,6 +12,7 @@ from reversion import revisions
 from reversion.models import Version
 import geopandas as gpd
 import json
+import os
 from pathlib import Path
 
 from datetime import datetime, timedelta
@@ -79,51 +80,85 @@ class ActiveLayerManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(active=True)
 
+
+#class LatestLayerManager(models.Manager):
+#    def get_queryset(self):
+#        return super().get_queryset().order_by('-version')
+
+
 def geojson_file_path(instance, filename):
     # file will be uploaded to <settings.DATA_STORE>/<filename>
     return f'{settings.DATA_STORE}/{filename}'
 
-#class GeoJsonFile(RevisionedMixin):
-#    layer = models.ForeignKey(
-#        'Layer',
-#        related_name='geojson_files',
-#        on_delete=models.CASCADE
-#    )
-#    index = models.IntegerField(editable=False, default=0)
-#    geojson_file= models.FileField(upload_to=geojson_file_path)
-#
-#    class Meta:
-#        app_label = 'sqs'
-#        unique_together = ('geojson_file', 'index')
-#
-#    def __str__(self):
-#        return f'{self.geojson_file}_{self.index}'
+class GeoJsonFile(models.Model):
+    layer = models.ForeignKey(
+        'Layer',
+        related_name='geojson_files',
+        on_delete=models.CASCADE
+    )
+    index = models.IntegerField(editable=False, default=0)
+    geojson_file= models.FileField(upload_to=geojson_file_path, max_length=512)
+
+    class Meta:
+        app_label = 'sqs'
+        #unique_together = ('geojson_file', 'index')
+
+    def __str__(self):
+        return f'File index {self.index} - {self.geojson_file}'
 
 class Layer(RevisionedMixin):
 
     name = models.CharField(max_length=128, unique=True)
     url = models.URLField(max_length=1024)
     #geojson = JSONField('Layer GeoJSON')
-    geojson_file= models.FileField(upload_to=geojson_file_path)
+    #geojson_file= models.FileField(upload_to=geojson_file_path)
     #attributes = models.TextField('Layer Attributes')
     attr_values = JSONField('Layer Attribute Values')
     version = models.IntegerField(editable=False, default=0)
     active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     objects = models.Manager()
+    #latest = LatestLayerManager()
     active_layers = ActiveLayerManager()
-    
+
+    class Meta:
+        app_label = 'sqs'
+        #unique_together = ('name', 'version')
+
+    def __str__(self):
+        return f'{self.name}, version {self.version}'
+   
     def save(self, *args, **kwargs):
-        self.version = self.version + 1
+        qs = Layer.objects.filter(name=self.name)
+        if qs:
+            self.version = qs.aggregate(version_max=Max('version'))['version_max'] + 1
+      
         super().save(*args, **kwargs)
 
+#    @property
+#    def latest_version(self, *args, **kwargs):
+#        return Layer.objects.filter(name=self.name).aggregate(version_max=Max('version'))['version_max']
+
+#    def latest_layer(self):
+#        qs = Layer.latest.filter(name=self.name)
+#        return qs.order_by('-version')[0] if qs.exists() else Layer.objects.none()
+
     @property
-    def attributes (self):
+    def attributes(self):
         return [attr_val['attribute'] for attr_val in self.attr_values]
 
     @property
     def geojson_file(self):
-        return self.geojson_files[0]
+        ''' returns the first file in the set of files for the given layer '''
+        _file = self.geojson_files.first()
+        return _file.geojson_file if _file and os.path.isfile(_file.geojson_file.path) else None
+
+    @property
+    def size(self):
+        ''' file size in bytes '''
+        return self.geojson_file.size if self.geojson_file else None
 
     @property
     @traceback_exception_handler
@@ -164,12 +199,6 @@ class Layer(RevisionedMixin):
 
         return version_obj 
             
-    class Meta:
-        app_label = 'sqs'
-
-    def __str__(self):
-        return f'{self.name}, version {self.version}'
-
 class LayerRequestLog(models.Model):
     FULL = 'FULL'
     PARTIAL = 'PARTIAL'
@@ -217,7 +246,8 @@ class LayerRequestLog(models.Model):
             masterlist_questions = request_log.data['masterlist_questions']
 
             layers_in_request = HelperUtils.get_layer_names(masterlist_questions)
-            existing_layers = list(Layer.active_layers.filter(name__in=layers_in_request).values_list('name', flat=True))
+            #existing_layers = list(Layer.active_layers.filter(name__in=layers_in_request).values_list('name', flat=True))
+            existing_layers = list(Layer.objects.filter(name__in=layers_in_request).values_list('name', flat=True))
             new_layers = list(set(existing_layers).symmetric_difference(set(layers_in_request)))
 
             res = dict(
@@ -272,9 +302,9 @@ class Task(RevisionedMixin):
     PRIORITY_NORMAL = 2
     PRIORITY_LOW = 3
     PRIORITY_CHOICES = (
-	(PRIORITY_HIGH,   'High'),
-	(PRIORITY_NORMAL, 'Normal'),
-	(PRIORITY_LOW,    'Low'),
+        (PRIORITY_HIGH,   'High'),
+        (PRIORITY_NORMAL, 'Normal'),
+        (PRIORITY_LOW,    'Low'),
     )
 
     STATUS_FAILED = 'failed'
@@ -286,12 +316,12 @@ class Task(RevisionedMixin):
     STATUS_MAX_QUEUE_TIME = 'max_queue_time'
     STATUS_MAX_RETRIES_REACHED = 'max_retries'
     STATUS_CHOICES = (
-	(STATUS_FAILED,    'Failed'),
-	(STATUS_CREATED,   'Created'),
-	(STATUS_RUNNING,   'Running'),
-	(STATUS_COMPLETED, 'Completed'),
-	(STATUS_CANCELLED, 'Cancelled'),
-	(STATUS_ERROR,     'Error'),
+        (STATUS_FAILED,    'Failed'),
+        (STATUS_CREATED,   'Created'),
+        (STATUS_RUNNING,   'Running'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_ERROR,     'Error'),
         (STATUS_MAX_QUEUE_TIME, 'Max_Queue_Time_Reached'),
         (STATUS_MAX_RETRIES_REACHED, 'Max_Retries_Reached'),
     )
