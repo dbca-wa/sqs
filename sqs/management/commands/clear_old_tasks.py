@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.conf import settings
 
 from datetime import datetime, timedelta
-from django.utils import timezone
+import pytz
 
 from sqs.components.gisquery.models import Task
 
@@ -16,7 +16,7 @@ class Command(BaseCommand):
 
         task_ids = []
         errors = []
-        earliest_date = (datetime.now() - timedelta(days=60)).replace(tzinfo=timezone.utc)
+        earliest_date = (datetime.now() - timedelta(days=60)).replace(tzinfo=pytz.utc)
         logger.info('Running command {}'.format(__name__))
 
         try:

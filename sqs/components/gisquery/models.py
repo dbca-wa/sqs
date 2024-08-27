@@ -7,9 +7,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.postgres.aggregates.general import ArrayAgg
 from django.db.models import Count
 from django.utils import timezone
+import pytz
 
 from reversion import revisions
 from reversion.models import Version
+import pandas as pd
 import geopandas as gpd
 import json
 import os
@@ -17,6 +19,7 @@ from pathlib import Path
 
 from datetime import datetime, timedelta
 
+from geojsplit import geojsplit
 from sqs.utils import HelperUtils, DATETIME_FMT
 from sqs.decorators import traceback_exception_handler
 
@@ -30,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def earliest_date():
     ''' Return datetime <settings.STALE_TASKS_DAYS> ago '''
-    return (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
+    return (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=pytz.utc)
 
 class RevisionedMixin(models.Model):
     """
@@ -110,6 +113,7 @@ class Layer(RevisionedMixin):
 
     name = models.CharField(max_length=128, unique=True)
     url = models.URLField(max_length=1024)
+    crs = models.CharField(max_length=24)
     #geojson = JSONField('Layer GeoJSON')
     #geojson_file= models.FileField(upload_to=geojson_file_path)
     #attributes = models.TextField('Layer Attributes')
@@ -160,18 +164,61 @@ class Layer(RevisionedMixin):
         ''' file size in bytes '''
         return self.geojson_file.size if self.geojson_file else None
 
-    @property
+#    @property
+#    @traceback_exception_handler
+#    def _to_gdf(self):
+#        ''' Layer to Geo Dataframe (converted to settings.CRS ['epsg:4326']) '''
+#        #gdf = gpd.read_file(json.dumps(self.geojson_file.path))
+#
+#        if not Path(self.geojson_file.path).is_file():
+#            #logger.warn(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+#            #return None
+#            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+#
+#        gdf = gpd.read_file(self.geojson_file.path)
+#        gdf.set_crs(self.crs, inplace=True)
+#        return gdf
+
+
     @traceback_exception_handler
-    def to_gdf(self):
-        ''' Layer to Geo Dataframe (converted to settings.CRS ['epsg:4326']) '''
-        #gdf = gpd.read_file(json.dumps(self.geojson_file.path))
+    def to_gdf(self, all_features=False):
+        #import ipdb; ipdb.set_trace()
+        gdf = gpd.GeoDataFrame()
+        for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
+            features_batch = features.get('features')
+            if features_batch:
+                gdf1 = gpd.GeoDataFrame.from_features(features_batch)
+                gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+                if not all_features:
+                    # return the gdf with only the first batch of features
+                    return gdf.set_crs(self.crs, inplace=True)
+
+        return gdf.set_crs(self.crs, inplace=True)
+
+
+    @traceback_exception_handler
+    def geojson_generator(self):
+        ''' returns Generator to stream geojson from file in parts 
+
+        for features in gen.stream(batch=5):
+            for feature in features:
+                try:
+                    if isinstance(features[feature], list):
+                        df = gpd.GeoDataFrame.from_features(features[feature])
+                        df.set_crs(settings.CRS, inplace=True)
+                        print(df)
+                except Exception as e:
+                    #print(features[feature])
+                    print(e)
+        '''
 
         if not Path(self.geojson_file.path).is_file():
-            #logger.warn(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
-            #return None
             raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
 
-        return gpd.read_file(self.geojson_file.path)
+        #geojson = geojsplit.GeoJSONBatchStreamer("data_store/CPT_DBCA_REGIONS/20240821T092056/CPT_DBCA_REGIONS.geojson")
+        #geojson_gen = geojsplit.GeoJSONBatchStreamer(self.geojson_file.path)
+        #return geojson_gen
+        return geojsplit.GeoJSONBatchStreamer(self.geojson_file.path)
 
     def get_obj_version_ids(self):
         ''' lists all versions for current layer '''
@@ -280,7 +327,7 @@ class LayerRequestLog(models.Model):
 class ActiveQueueManager(models.Manager):
     ''' filter queued tasks and omit old (stale) queued tasks '''
     def get_queryset(self):
-        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
+        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=pytz.utc)
         return super().get_queryset().filter(status=Task.STATUS_CREATED, created__gte=earliest_date)
 
 class ActiveRunningManager(models.Manager):
@@ -292,7 +339,7 @@ class ActiveRunningManager(models.Manager):
 class ActiveProcessingManager(models.Manager):
     ''' filter queued and running tasks and omit old (stale) queued tasks '''
     def get_queryset(self):
-        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=timezone.utc)
+        earliest_date = (datetime.now() - timedelta(days=settings.STALE_TASKS_DAYS)).replace(tzinfo=pytz.utc)
         return super().get_queryset().filter(status__in=[Task.STATUS_CREATED, Task.STATUS_CREATED], created__gte=earliest_date)
 
 

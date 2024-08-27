@@ -1,8 +1,9 @@
 from django.conf import settings
 #from django.contrib import admin
 from sqs.admin import admin
-from django.conf.urls import url, include
-from django.urls import path
+#from django.conf.urls import url, include
+from django.conf.urls import include
+from django.urls import path, re_path
 from django.contrib.auth.views import LogoutView, LoginView
 from django.views.decorators.csrf import csrf_exempt
 
@@ -29,19 +30,19 @@ router.register(r'tasks', gisquery_api.TaskViewSet, basename='tasks')
 router.register(r'task_paginated', gisquery_api.TaskPaginatedViewSet, basename='task_paginated')
 
 api_patterns = [
-    url(r'^api/v1/',include(router.urls)),
+    re_path(r'^api/v1/',include(router.urls)),
 ]
 
 # URL Patterns
 urlpatterns = [
-    path(r'admin/', admin.site.urls),
-    url(r'^logout/$', LogoutView.as_view(), {'next_page': '/'}, name='logout'),
-    url(r'', include(api_patterns)),
-    url(r'^$', TemplateView.as_view(template_name='sqs/base2.html'), name='home'),
+    re_path(r'admin/', admin.site.urls),
+    re_path(r'^logout/$', LogoutView.as_view(), {'next_page': '/'}, name='logout'),
+    re_path(r'', include(api_patterns)),
+    re_path(r'^$', TemplateView.as_view(template_name='sqs/base2.html'), name='home'),
 
-    url(r'api/v1/das/task_queue', csrf_exempt(gisquery_views.DisturbanceLayerQueueView.as_view()), name='das_task_queue'),
-    url(r'api/v1/das/spatial_query', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das_spatial_query'),
-    url(r'api/v1/add_layer', csrf_exempt(gisquery_views.DefaultLayerProviderView.as_view()), name='add_layer'),
+    re_path(r'api/v1/das/task_queue', csrf_exempt(gisquery_views.DisturbanceLayerQueueView.as_view()), name='das_task_queue'),
+    re_path(r'api/v1/das/spatial_query', csrf_exempt(gisquery_views.DisturbanceLayerView.as_view()), name='das_spatial_query'),
+    re_path(r'api/v1/add_layer', csrf_exempt(gisquery_views.DefaultLayerProviderView.as_view()), name='add_layer'),
     #url(r'api/v1/point_query', csrf_exempt(gisquery_views.PointQueryLayerView.as_view()), name='point_query'),
     #url(r'api/v1/check_layer', csrf_exempt(gisquery_views.CheckLayerView.as_view()), name='check_layer'),
 
@@ -52,7 +53,7 @@ urlpatterns = [
 #    url(r'api/v1/das4', csrf_exempt(gisquery_api.DisturbanceLayerAPIView3.as_view()), name='das4'),
 #    url(r'api/v1/das5', gisquery_api.DisturbanceLayerAPIView3.as_view(), name='das5'),
 
-    url(r'schema/', schema_view),
+    re_path(r'schema/', schema_view),
 ]
 
 #if settings.SHOW_DEBUG_TOOLBAR:

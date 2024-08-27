@@ -54,7 +54,9 @@ CRS = env('CRS', 'epsg:4326')
 CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
 #GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
 DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in meters
-MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
+MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', None) # MB
+GEOJSON_BATCH_SIZE = env('GEOJSON_BATCH_SIZE', 1000)
+SHOW_SYS_MEM_STATS = env('SHOW_SYS_MEM_STATS', False)
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
 
@@ -293,7 +295,7 @@ LOGGING = {
         },
         'sys_stats': {
             'handlers': ['debug'],
-            'level': 'INFO'
+            'level': 'DEBUG'
         },
 
     }

@@ -128,6 +128,25 @@ class LayerLoader():
     #def load_layer(self, filename=None, geojson=None, force_load=False):
     def load_layer(self, filename=None, geojson=None):
 
+        def get_crs_from_geojson(geojson):
+            try:
+                crs = geojson['crs']['properties']['name'].split('EPSG::')[-1]
+                return f'epsg:{crs}'
+            except KeyError as ke:
+                raise Exception(f'Cannot determine CRS from layer {self.name}: {ke}')
+
+        def get_attr_values(geojson):
+            #with open('data_store/CPT_DBCA_REGIONS/20240823T141341/CPT_DBCA_REGIONS.geojson') as fid:
+            #    geojson = json.load(fid)
+            attr_values = [] 
+            attributes=list(geojson['features'][0]['properties'].keys())
+            for attr in attributes:
+                values = [f['properties'][attr] for f in geojson['features']]
+                attr_values.append(dict(attribute=attr, values=values))
+
+            return attr_values
+
+
         layer = None
         if self.name in settings.KB_EXCLUDE_LAYERS:
             logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')
@@ -141,10 +160,12 @@ class LayerLoader():
                 # get GeoJSON from GeoServer
                 geojson = self.retrieve_layer()
 
+            crs = get_crs_from_geojson(geojson)
+
             #layer_gdf1 = gpd.read_file(json.dumps(geojson))
             # Create gdf from GEOJSON
-            layer_gdf1 = gpd.GeoDataFrame.from_features(geojson['features'])
-            #layer_gdf1.set_crs('EPSG:4283', inplace=True)
+            #layer_gdf1 = gpd.GeoDataFrame.from_features(geojson['features'])
+            #layer_gdf1.set_crs(crs, inplace=True)
 
             qs_layer = Layer.objects.filter(name=self.name)
             with transaction.atomic():
@@ -158,13 +179,14 @@ class LayerLoader():
                 with open(filename, 'w') as f:
                     json.dump(geojson, f)
 
-                attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
-
-                attr_values = []
-                data = layer_gdf1[attributes].to_json()
-                for attr in attributes:
-                    values = list(set(json.loads(data)[attr].values()))
-                    attr_values.append(dict(attribute=attr, values=values))
+#                attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
+#
+#                attr_values = []
+#                data = layer_gdf1[attributes].to_json()
+#                for attr in attributes:
+#                    values = list(set(json.loads(data)[attr].values()))
+#                    attr_values.append(dict(attribute=attr, values=values))
+                attr_values = get_attr_values(geojson)
 
                 qs = Layer.objects.filter(name=self.name)
                 version = qs.aggregate(version_max=Max('version'))['version_max'] + 1 if qs else 0
@@ -172,7 +194,7 @@ class LayerLoader():
                 #layer = Layer.objects.create(name=self.name, version=version, url=self.url, attr_values=attr_values)
                 layer, created = Layer.objects.update_or_create(
                     name=self.name,
-                    defaults={'version': version, 'url': self.url, 'attr_values': attr_values},
+                    defaults={'crs': crs, 'version': version, 'url': self.url, 'attr_values': attr_values},
                 )
 
                 geojson_file = GeoJsonFile.objects.create(layer=layer, geojson_file=filename)
@@ -307,7 +329,7 @@ class DbLayerProvider():
             if self.exclude_layer(layer):
                 return None, None 
 
-            layer_gdf = layer.to_gdf
+            layer_gdf = layer.to_gdf(all_features=True)
             layer_info = self.layer_info(layer)
 
         except Exception as e:
@@ -327,7 +349,7 @@ class DbLayerProvider():
             if self.exclude_layer(layer):
                 return None, None 
 
-            layer_gdf = layer.to_gdf
+            layer_gdf = layer.to_gdf(all_features=True)
             layer_info = self.layer_info(layer)
             #self.set_cache(layer_info, layer_gdf)
 #            self.set_cache(layer_info, layer.geojson)
@@ -350,7 +372,7 @@ class DbLayerProvider():
             if self.exclude_layer(layer):
                 return None, None 
 
-            layer_gdf = layer.to_gdf
+            layer_gdf = layer.to_gdf(all_features=True)
 
             layer_info = self.layer_info(layer)
             #self.set_cache(layer_info, layer_gdf)
@@ -362,6 +384,31 @@ class DbLayerProvider():
             raise LayerProviderException(err_msg, code='db_layer_retrieve_error' )
 
         return layer_info, layer_gdf
+
+    def get_layer_generator(self):
+        '''
+        Return generator to load geojson from filesystem in batches/parts
+        '''
+          
+        try:
+            layer = Layer.objects.get(name=self.layer_name)
+            if self.exclude_layer(layer):
+                return None, None 
+
+            #layer_gdf = layer.to_gdf
+            layer_gen = layer.geojson_generator()
+
+            layer_info = self.layer_info(layer)
+            #self.set_cache(layer_info, layer_gdf)
+#            self.set_cache(layer_info, layer.geojson)
+
+        except Exception as e:
+            err_msg = f'Error getting layer {self.layer_name} from DB\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='db_layer_retrieve_error' )
+
+        return layer_info, layer_gen
+
 
 #    def get_from_cache(self):
 #        '''
@@ -390,6 +437,7 @@ class DbLayerProvider():
         return dict(
             layer_name=self.layer_name,
             layer_version=layer.version,
+            layer_crs=layer.crs,
             layer_created_date=layer.created_date.strftime(DATETIME_FMT),
             layer_modified_date=layer.modified_date.strftime(DATETIME_FMT),
         )
@@ -432,13 +480,14 @@ def get_layer_size(layers=None):
         print(f'{item["size"]}\t{item["layer_name"]}')
 
 
-def print_system_memory_stats():
-    info = psutil.virtual_memory()
-    mem_avail_perc = round(psutil.virtual_memory().available * 100 / psutil.virtual_memory().total, 2)
-    mem_used_perc = round(psutil.virtual_memory().percent, 2)
-    cpu_used_perc = round(psutil.cpu_percent(), 2)
+def print_system_memory_stats(msg=None):
+    if settings.SHOW_SYS_MEM_STATS:
+        info = psutil.virtual_memory()
+        avail_mem = int(psutil.virtual_memory().available / 1024**2)
+        total_mem = int(psutil.virtual_memory().total /1024**2)
+        mem_avail_perc = round(avail_mem * 100 / total_mem, 2)
+        mem_used_perc = round(psutil.virtual_memory().percent, 2)
+        cpu_used_perc = round(psutil.cpu_percent(), 2)
 
-    #logger.info(f'{info}\nMem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
-    #logger.info(f'Mem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
-    logger_stats.info(f'Mem Avail %: {mem_avail_perc}, Mem Used %: {mem_used_perc}, CPU Used %: {cpu_used_perc}')
+        logger_stats.debug(f'{msg} - Mem Avail %: {mem_avail_perc} ({avail_mem:,}/{total_mem:,} MB), CPU Used %: {cpu_used_perc}')
 

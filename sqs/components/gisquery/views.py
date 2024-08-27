@@ -8,7 +8,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.cache import cache
-from django.utils import timezone
 
 from datetime import datetime, timedelta
 import time
@@ -53,7 +52,7 @@ class DisturbanceLayerView(View):
             return ids
 
         def normalise_datetime(when):
-            ''' drop the decimal seconds, and set timezone UTC 
+            ''' drop the decimal seconds, and set time zone UTC 
                 when --> type is datetime.datetime
                          returns datetime.datetime
             '''
@@ -208,7 +207,7 @@ class DisturbanceLayerQueueView(View):
                 request_log.save()
 
                 task.requester = requester
-                task.created = datetime.now().replace(tzinfo=timezone.utc)
+                task.created = datetime.now().replace(tzinfo=pytz.utc)
                 task.save()
 
                 response = {'data': {'task_id': task.id, 'task_created': created}, 

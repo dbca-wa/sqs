@@ -24,14 +24,17 @@ class Command(BaseCommand):
     Load layer utility
 
     # will retrieve a list of recently updated layers from KB, cross-check if they exist in SQS - if they exist then update in SQS
-    ./manage.py --days_ago 7
+    ./manage.py update_layers --days_ago 7
 
     # update user provided layer names, only if recently updated (--name must be last paramenter)
-    ./manage.py --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
-    ./manage.py --days_ago 7 --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA 
+    ./manage.py update_layers --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
+    ./manage.py update_layers --days_ago 7 --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA 
 
     # force update of user provided layer names - ignore recently updated check (--name must be last paramenter)
-    ./manage.py --force --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
+    ./manage.py update_layers --force --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
+
+    To get a list of all existing layer_names 
+    ./manage.py update_layers --list
     """
 
     help = 'Updates the active layers - get the active layers from GeoServer and if changed update SQS'
@@ -40,16 +43,21 @@ class Command(BaseCommand):
         parser.add_argument('--days_ago', type=int, help='Layers changed in KB with last <int: days_ago>', default=7)
         parser.add_argument('--name', type=str, help='Update layer by name from KB', nargs='*') # optional
         parser.add_argument('--force', action='store_true', help='Update layer by name from KB, ignore recently updated flag')
+        parser.add_argument('--list', action='store_true', help='List current stored layer in DB')
 
     def handle(self, *args, **options):
         days_ago = options['days_ago']
         layers = options['name'] if options['name'] else []
         force = options['force']
+        list_layers_in_db = options['list']
 
         errors = []
         updates = []
         now = datetime.now().astimezone(timezone(settings.TIME_ZONE))
         logger.info('Running command {}'.format(__name__))
+
+        if list_layers_in_db: 
+            return ' '.join(list(Layer.objects.all().values_list('name', flat=True)))
 
         if not force: 
             # get recent layers changed in KB

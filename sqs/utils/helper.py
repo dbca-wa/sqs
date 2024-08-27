@@ -191,33 +191,51 @@ class DefaultOperator():
         _operator_result = self._get_overlay_result(column_name)
         return list(set(_operator_result))
 
+    def answer_prefix(self, prefix_type: str) -> list:
+        ''' prefix_type - proponent_items | assessor_items
+        '''
+        items = self.layer.get(prefix_type)
+        column_prefix = [i['prefix'].strip() for i in items if 'prefix' in i and i['prefix']]
+        if column_prefix:
+            return [column_prefix[0]]
+        return []
+
     def proponent_answer(self):
         visible_to_proponent = self.layer.get('visible_to_proponent', False)
         proponent_items = self.layer.get('proponent_items')
         column_names = [i['answer'].strip() for i in proponent_items if 'answer' in i and i['answer']]
-        column_prefix = [i['prefix'].strip() for i in proponent_items if 'prefix' in i and i['prefix']]
+        #column_prefix = [i['prefix'].strip() for i in proponent_items if 'prefix' in i and i['prefix']]
 
         grouped_res = []
         if visible_to_proponent:
             grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
 
-        if column_prefix:
-            grouped_res = [column_prefix[0]]  + grouped_res
+        #if column_prefix:
+        #    grouped_res = [column_prefix[0]]  + grouped_res
 
         grouped_res = list(dict.fromkeys(grouped_res)) # unique entries, maintain order
-        return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
+        #return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
+        return grouped_res
 
     def assessor_answer(self):
         assessor_items = self.layer.get('assessor_items')
         column_names = [i['info'].strip() for i in assessor_items if 'info' in i and i['info']]
-        column_prefix = [i['prefix'].strip() for i in assessor_items if 'prefix' in i and i['prefix']]
+        #column_prefix = [i['prefix'].strip() for i in assessor_items if 'prefix' in i and i['prefix']]
 
         grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
 
-        if column_prefix:
-            grouped_res = [column_prefix[0]]  + grouped_res
+        #if column_prefix:
+        #    grouped_res = [column_prefix[0]]  + grouped_res
 
         grouped_res = list(dict.fromkeys(grouped_res)) # unique entries, maintain order
-        return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
+        #return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
+        return grouped_res
 
+
+    def unique_list(self, _list):
+        return list(set(_list))
+
+    def to_str(self, _list):
+        _list = self.unique_list(_list)
+        return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
 

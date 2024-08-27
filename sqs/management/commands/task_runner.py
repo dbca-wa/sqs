@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from django.utils import timezone
 
 import subprocess
 from datetime import datetime
@@ -9,6 +8,7 @@ import os
 import sys
 import json
 import time
+import pytz
 from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 
 
@@ -42,7 +42,7 @@ class TaskRunner(object):
                     logger.warn(f'Too many processes spawned. Aborting command \'{cmd}\' ...')
                     continue
 
-                start_time = datetime.now().replace(tzinfo=timezone.utc)
+                start_time = datetime.now().replace(tzinfo=pytz.utc)
                 logger.info('_' * 120)
                 logger.info(f'Executing command \'{cmd}\'')
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
@@ -102,7 +102,7 @@ class TaskRunner(object):
 
             #task.stdout = json.dumps(result.__dict__)
             task.start_time = start_time
-            task.end_time = datetime.now().replace(tzinfo=timezone.utc)
+            task.end_time = datetime.now().replace(tzinfo=pytz.utc)
             task.stdout = result.stdout
             task.stderr = result.stderr
             task.status = Task.STATUS_COMPLETED
