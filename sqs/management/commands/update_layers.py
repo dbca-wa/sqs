@@ -33,6 +33,9 @@ class Command(BaseCommand):
     # force update of user provided layer names - ignore recently updated check (--name must be last paramenter)
     ./manage.py update_layers --force --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
 
+    # update ONLY those layers in user provided list that are missingin DB
+    ./manage.py update_layers --update_missing --name CPT_DBCA_REGIONS CPT_THREATENED_FAUNA
+
     To get a list of all existing layer_names 
     ./manage.py update_layers --list
     """
@@ -44,12 +47,16 @@ class Command(BaseCommand):
         parser.add_argument('--name', type=str, help='Update layer by name from KB', nargs='*') # optional
         parser.add_argument('--force', action='store_true', help='Update layer by name from KB, ignore recently updated flag')
         parser.add_argument('--list', action='store_true', help='List current stored layer in DB')
+        parser.add_argument('--update_missing_db', action='store_true', help='Check user provided layer names against layers in DB, update those that are missing')
+        parser.add_argument('--update_missing_dir', action='store_true', help='Check user provided layer names against layer names in data_store folder, update those that are missing')
 
     def handle(self, *args, **options):
         days_ago = options['days_ago']
         layers = options['name'] if options['name'] else []
         force = options['force']
         list_layers_in_db = options['list']
+        update_missing_db = options['update_missing_db']
+        update_missing_dir = options['update_missing_dir']
 
         errors = []
         updates = []
@@ -59,7 +66,14 @@ class Command(BaseCommand):
         if list_layers_in_db: 
             return ' '.join(list(Layer.objects.all().values_list('name', flat=True)))
 
-        if not force: 
+        if update_missing_db: 
+            layers_in_db = list(Layer.objects.all().values_list('name', flat=True))
+            layers = list(set(layers) - set(layers_in_db))
+        elif update_missing_dir: 
+            #layers_in_db = list(Layer.objects.all().values_list('name', flat=True))
+            layers_in_dir = [name for name in os.listdir("data_store") if os.path.isdir('data_store/'+name)]
+            layers = list(set(layers) - set(layers_in_dir))
+        elif not force: 
             # get recent layers changed in KB
             #layers_to_update = RecentLayerProvider(days_ago=days_ago).get_layers_to_update()
             layers = RecentLayerProvider(days_ago=days_ago).get_layers_to_update()
@@ -67,10 +81,12 @@ class Command(BaseCommand):
             # combine with user provided layers and remove duplicates
             #layers = list(set(layers + layers_to_update))
 
+
         # update layers in SQS
         for layer_name in layers:
             try:
                 # get layer from KB and update SQS layer
+                logger.info(f'Fetching layer {layer_name} ...')
                 new_layer = LayerLoader(name=layer_name).load_layer()
 
                 logger.info(f'Layer Updated: {new_layer.name}, Modified Date: {new_layer.modified_date}, Version: {new_layer.version}\n{"_"*125}')
