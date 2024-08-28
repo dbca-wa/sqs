@@ -142,8 +142,11 @@ class LayerLoader():
             attr_values = [] 
             attributes=list(geojson['features'][0]['properties'].keys())
             for attr in attributes:
-                values = [f['properties'][attr] for f in geojson['features']]
-                attr_values.append(dict(attribute=attr, values=values))
+                try:
+                    values = [f['properties'][attr] for f in geojson['features']]
+                    attr_values.append(dict(attribute=attr, values=values))
+                except Exception as ex:
+                    logger.error(f'Error setting attributes for layer, omitting attr {attr}: {ex}')
 
             return attr_values
 
