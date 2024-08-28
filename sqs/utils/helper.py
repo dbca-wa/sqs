@@ -231,11 +231,3 @@ class DefaultOperator():
         #return '\n'.join(grouped_res).replace(',',', ').replace('\\n', '\n')
         return grouped_res
 
-
-    def unique_list(self, _list):
-        return list(set(_list))
-
-    def to_str(self, _list):
-        _list = self.unique_list(_list)
-        return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
-

@@ -4,6 +4,7 @@ from django.db import transaction
 from django.core.cache import cache
 from rest_framework import status
 
+import gc
 import pandas as pd
 import geopandas as gpd
 import requests
@@ -61,49 +62,47 @@ class DisturbanceLayerQueryHelper():
 
         return mpoly
 
-    def add_buffer(self, cddp_question, layer):
+    def add_buffer(self, layer, layer_crs):
         '''
-        Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
+        1. Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
         add buffer (in meters) to the new projection, then reverts the buffered polygon to 
         the original projection
 
+        2. Converts to a mpoly to a common CRS (same as layer's CRS) --> to allow overlay
+
         Input: buffer_size -- in meters
 
-        Returns the the original polygon, perimeter increased by the buffer size
+        Returns the the original polygon, perimeter increased/decreased by the buffer size and converted to a common CRS
         '''
-        mpoly = self.geojson
-        if 'POLYGON' not in str(mpoly):
-            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly}.')
+
+        mpoly_gdf = self.geojson
+        if layer_crs.lower() != mpoly_gdf.crs.srs.lower():
+            # need a common CRS before overlaying shapefile with layer
+            mpoly_gdf.to_crs(layer_crs, inplace=True)
+
+        if 'POLYGON' not in str(mpoly_gdf):
+            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly_gdf}.')
 
         try:
             # if buffer specified in layer definition, increase the perimeter by the buffer amount. Otherwise, 
             # reduce the perimeter by settings.DEFAULT_BUFFER
             buffer_size = layer['buffer'] if layer['buffer'] else settings.DEFAULT_BUFFER
             if buffer_size and buffer_size != 0:
-                crs_orig =  mpoly.crs.srs
+                crs_orig =  mpoly_gdf.crs
 
                 # convert to new projection so that buffer can be added in meters
-                mpoly_cart = mpoly.to_crs(settings.CRS_CARTESIAN)
-                mpoly_cart['geometry'] = mpoly_cart['geometry'].buffer(buffer_size)
+                mpoly_cart_gdf = mpoly_gdf.to_crs(settings.CRS_CARTESIAN)
+                mpoly_cart_gdf['geometry'] = mpoly_cart_gdf['geometry'].buffer(buffer_size)
 
                 # revert to original projection
-                mpoly_buffer = mpoly_cart.to_crs(crs_orig)
+                mpoly_buffer_gdf = mpoly_cart_gdf.to_crs(crs_orig)
 
-                return mpoly_buffer
+                return mpoly_buffer_gdf
             
         except Exception as e:
-            logger.error(f'Error adding buffer {buffer_size} to polygon for CDDP Question {cddp_question}.\n{e}')
+            logger.error(f'Error adding buffer {buffer_size} to polygon.\n{e}')
             
-        return mpoly
-
-#    def get_unique_layer_list(self):
-#        unique_layer_list = []
-#        for question_group in self.masterlist_questions:
-#            for question in question_group['questions']:
-#                _dict = dict(layer_name=question['layer_name'], layer_url=question['layer_url'])
-#                if _dict not in unique_layer_list:
-#                    unique_layer_list.append(_dict)
-#        return unique_layer_list
+        return mpoly_gdf
 
     def get_attributes(self, layer_gdf):
         cols = layer_gdf.columns.drop(['id','md5_rowhash', 'geometry'])
@@ -119,53 +118,9 @@ class DisturbanceLayerQueryHelper():
         Return the entire question group. 
         For example, given a radiobutton or checkbox question, return the all question/answer combinations for that question
         """
-
-#        def reorder_mlq():
-#            ''' Reorders the masterlist_questions in the question_group, sorting layer_names '''
-#            ordered_question_group = []
-#            ordered_multiple_question_group = []
-#    
-#            mlq_unique_layers = list(set([question_group['questions'][0]['layer']['layer_name'] for question_group in self.masterlist_questions]))
-#            for unique_layer_name in mlq_unique_layers:
-#                for question_group in self.masterlist_questions:
-#                    #for question in question_group['questions']:
-#                    first_question = question_group['questions'][0]
-#                    layer_name = first_question['layer']['layer_name']
-#                    if layer_name == unique_layer_name:
-#                        if len(question_group['questions']) == 1:
-#                            ordered_question_group.append(question_group)
-#                        else:
-#                            ordered_multiple_question_group.append(question_group)
-#    
-#            return ordered_question_group + ordered_multiple_question_group
-
-        def reorder_question_group():
-            ''' Reorders the questions in the question_group , sorting layer_names. Sort Nested Multiples Questions by layer_name'''
-            ordered_question_group = dict(question_group=question_group['question_group'])
-            ordered_questions = []
-            for unique_layer_name in unique_layers:
-                for question in question_group['questions']:
-                    layer_name = question['layer']['layer_name']
-                    if layer_name == unique_layer_name:
-                        ordered_questions.append(question)
-            ordered_question_group.update(dict(questions=ordered_questions))
-            return ordered_question_group
-
         try:
-            #reordered_masterlist_questions = reorder_mlq()
-            #for question_group in reordered_masterlist_questions:
-            #for question_group in reordered_masterlist_questions:
-            #    print(len(question_group['questions']), question_group['questions'][0]['layer']['layer_name'], question_group['question_group'][:30])
-
-            #for question_group in reordered_masterlist_questions:
             for question_group in self.masterlist_questions:
-                #if question_group['question_group'] == question:
-                #if question_group['question_group']['question'] == question:
                 if question_group['question_group'] == question:
-                    #return question_group
-#                    unique_layers = list(set([question['layer']['layer_name'] for question in question_group['questions']]))
-#                    if len(unique_layers) > 1:
-#                        return reorder_question_group()
                     return question_group
 
         except Exception as e:
@@ -191,19 +146,6 @@ class DisturbanceLayerQueryHelper():
             )
         )
         return self.metrics
-
-#    def overlay_how(self, how):
-#        """
-#        overlay.how options available (in geopandas) => ['interesection', 'union', 'difference', 'symmetrical difference']
-#                            supported (in SQS)       => ['interesection', 'difference']
-#        """
-#        if how=='Overlapping':
-#            return 'intersection'
-#        elif how=='Outside':
-#            #return 'difference'
-#            return 'symmetric_difference'
-#        else:
-#            logger.error(f'Error: Unknown "how" operator: {how}')
 
     def get_overlay_gdf(self, layer_gdf, mpoly, how, column_name):
         ''' how = ['intersection','symmetric_difference','difference']
@@ -236,6 +178,12 @@ class DisturbanceLayerQueryHelper():
               It is CPU cost effective to query all questions for the same layer now, and cache results for 
               subsequent potential question/answer queries.
         '''
+
+        def unique_list(_list):
+            return list(set(_list))
+
+        def to_str(_list):
+            return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
 
         try:
             error_msg = ''
@@ -278,8 +226,8 @@ class DisturbanceLayerQueryHelper():
                         column_name = layer['column_name']
                         operator = layer['operator']
                         value = layer['value']
-                        #how = self.overlay_how(how) # ['interesection', 'difference']
-                        mpoly = self.add_buffer(cddp_question, layer)
+                        layer_crs = layer_info['layer_crs']
+                        mpoly = self.add_buffer(layer, layer_crs)
 
                         operator_result = []
                         proponent_answer = []
@@ -294,42 +242,16 @@ class DisturbanceLayerQueryHelper():
                                 layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
                                 print_system_memory_stats(f'{idx}-{layer_name}')
 
-                                if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
-                                    # need a common CRS before overlaying shapefile with layer
-                                    mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
-
-#                                # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetric_difference' we will
-#                                # compute 'intersection' and filter the intersected features from the layer_gdf.
-#                                # That is, for both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
-#
-#                                # get layer features intersected by mpoly
-#                                overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
-#
-#                                if column_name not in overlay_gdf.columns:
-#                                    _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
-#                                    error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
-#                                    logger.error(error_msg)
-#
-#                                #import ipdb; ipdb.set_trace()
-#                                if how == 'intersection':
-#                                    # already computed above
-#                                    pass
-#                                else:
-#                                    # equivalent to 'symmetrical difference', but re-introducing very low area/boundary_length ratios, features which would otherwise be omitted
-#                                    overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
-
                                 overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
-
-                                # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                                 op = DefaultOperator(layer, overlay_gdf, widget_type)
 
                                 operator_result  += op.operator_result()
                                 proponent_answer += op.proponent_answer()
                                 assessor_answer  += op.assessor_answer()
 
-                        operator_result  = op.answer_prefix('proponent_items') + op.unique_list(operator_result)
-                        proponent_answer = op.to_str(op.answer_prefix('proponent_items') + proponent_answer)
-                        assessor_answer  = op.to_str(op.answer_prefix('assessor_items') + assessor_answer)
+                        operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
+                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
+                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(assessor_answer))
 
                         logger.info(f'Operator Result: {operator_result}'[:200])
                         condition = f'{column_name} -- {operator}'
@@ -374,6 +296,7 @@ class DisturbanceLayerQueryHelper():
 #        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
             #import ipdb; ipdb.set_trace()
 
+        gc.collect()
         return question_group_res
 
 

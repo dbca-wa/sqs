@@ -182,7 +182,6 @@ class Layer(RevisionedMixin):
 
     @traceback_exception_handler
     def to_gdf(self, all_features=False):
-        #import ipdb; ipdb.set_trace()
         gdf = gpd.GeoDataFrame()
         for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
             features_batch = features.get('features')

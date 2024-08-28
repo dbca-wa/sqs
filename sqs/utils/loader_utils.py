@@ -14,6 +14,7 @@ import sys
 from datetime import datetime
 from dateutil import parser
 import psutil
+import gc
 
 from sqs.components.gisquery.models import Layer, GeoJsonFile
 from sqs.exceptions import LayerProviderException
@@ -147,6 +148,7 @@ class LayerLoader():
             return attr_values
 
 
+        gc.collect()
         layer = None
         if self.name in settings.KB_EXCLUDE_LAYERS:
             logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')
