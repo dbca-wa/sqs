@@ -12,23 +12,56 @@ class SchemaSearch():
 
     def search(self, search_list):
         """
+        Search proposal schema for flattened key and corresponding value given flattened_key 
         To run:
-            from sqs.utils.helper import search
-            search(p.data, ['BRM', 'JM 1'])
-            search(p.data, search_list=['finalSection.Section8-0', 'tenureSection.Section1-0.Section1-0-3'])
-                output:
-                    {'finalSection.Section8-0': 'yes',
-                     'tenureSection.Section1-0.Section1-0-3': 'on'}
+            from sqs.components.gisquery.models import LayerRequestLog
+            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+            p_data = rl.data['proposal']['data']
+
+            from sqs.utils.schema_search  import SchemaSearch
+            search_schema = SchemaSearch(p_data)
+            search_schema.search(['1ProposalSummary1.Section1-0'])
+            -->{'1ProposalSummary1.Section1-0': 'JM Test'}
         """
+
         result = {}
         flat_dict = self._flatten(self.dictionary)
         for k, v in flat_dict.items():
-            #import ipdb; ipdb.set_trace()
             for search_item in search_list:
                 if k.lower()==search_item.lower():
                     result.update( {k: v} )
 
         return result
+
+    def search_data(self, search_str, checkbox=False):
+        """
+        Search proposal data for component answer given name (section_name)
+        To run:
+            from sqs.components.gisquery.models import LayerRequestLog
+            rl = LayerRequestLog.objects.filter(app_id=2445).first()
+            p_data = rl.data['proposal']['data']
+
+            from sqs.utils.schema_search  import SchemaSearch
+            search_schema = SchemaSearch(p_data)
+            search_schema.search_data('Section1-0')
+            --> 'Test Response'
+        """
+        res = {}
+        flat_dict = self._flatten(self.dictionary)
+        for k, v in flat_dict.items():
+            try:
+                if search_str.lower() in k.lower():
+                    key_list = k.split('.')
+                    key = key_list[-1]
+                    if search_str.lower() in [x.lower() for x in key_list]:
+                        if checkbox:
+                            res[key] = v.strip() if isinstance(v, str) else v
+                        else:
+                            return v.strip() if isinstance(v, str) else v
+            except:
+                pass
+
+        return res
 
     def get_flat_dict(self):
         """
@@ -50,7 +83,6 @@ class SchemaSearch():
         result = {}
         flat_dict = self._flatten(self.dictionary)
         for k, v in flat_dict.items():
-            #import ipdb; ipdb.set_trace()
             key = k.split('.')[-1]
             result.update( {key: v} )
 
@@ -97,7 +129,6 @@ class SchemaSearch():
                 #    _flatten(elem, new_data, new_key, sep, width)
         else:
             if parent_key not in new_data:
-                #import ipdb; ipdb.set_trace()
                 new_data[parent_key] = old_data if not is_json(old_data) else json.loads(old_data)
                 #new_data[parent_key.split('.')[-1]] = old_data
             else:

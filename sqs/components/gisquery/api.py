@@ -50,20 +50,20 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     http_method_names = ['get']
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def csrf_token(self, request, *args, **kwargs):            
         """ https://localhost:8002/api/v1/layers/1/csrf_token.json
         """
         return Response({"test":"get_test"})
 
-    @traceback_exception_handler
-    def list(self, request, *args, **kwargs):            
-        """ http://localhost:8002/api/v1/layers/
-        """
-        return Response(self.queryset.values('name', 'url', 'active'))
+#    @basic_exception_handler
+#    def list(self, request, *args, **kwargs):            
+#        """ http://localhost:8002/api/v1/layers/
+#        """
+#        return Response(self.queryset.values('id', 'name', 'url', 'active', 'geojson_file'))
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/1/layer.json 
 
@@ -83,7 +83,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def geojson(self, request, *args, **kwargs):            
         """ 
         http://localhost:8002/api/v1/layers/informal_reservess/geojson.json
@@ -96,7 +96,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         layer_name = kwargs.get('pk')
         num_features = int(request.GET.get('num_features', 3))
 
-        # get from cache, if exists. Otherwise get from DB, if exists
+        # get from db, if exists.
         layer_provider = DbLayerProvider(layer_name=layer_name, url='')
         layer_info, layer_gdf = layer_provider.get_layer(from_geoserver=False)
 
@@ -117,7 +117,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return JsonResponse(add_features_to_geojson)
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def check_layer(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/check_layer/?layer_name=informal_reserves
             requests.get('http://localhost:8002/api/v1/layers/check_sqs_layer', params={'layer_name':'informal_reserves'})
@@ -137,12 +137,11 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return  JsonResponse(status=status.HTTP_200_OK, data={'message': f'Layer is available on SQS. Last Updated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}'})
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def get_attributes(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/get_attributes/?layer_name=informal_reserves
             http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&attr_name=LGA_TYPE
             http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&attrs_only=true
-            http://localhost:8002/api/v1/layers/get_attributes/?layer_name=CPT_LOCAL_GOVT_AREAS&use_cache=False
 
             requests.get('http://localhost:8002/api/v1/layers/get_attributes', params={'layer_name':'informal_reserves'})
 
@@ -154,50 +153,40 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         layer_name = request.GET.get('layer_name')
         attrs_only = request.GET.get('attrs_only')
         attr_name = request.GET.get('attr_name')
-        use_cache = request.GET.get('use_cache')
 
         if layer_name is None:
             return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
 
+        qs_layer = self.queryset.filter(name=layer_name)
+        if not qs_layer.exists():
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Layer not available on SQS'})
+        #layer = Layer.objects.get(name=layer_name)
+        layer = qs_layer[0]
 
-        if use_cache and use_cache.lower()=='false':
-            qs_layer = self.queryset.filter(name=layer_name)
-            if not qs_layer.exists():
-                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Layer not available on SQS'})
-            layer_gdf = qs_layer[0].to_gdf
-        else:
-            # get from cache, if exists. Otherwise get from DB, if exists
-            layer_info, layer_gdf = DbLayerProvider(layer_name=layer_name, url='').get_layer(from_geoserver=False)
+        if layer is None:
+            return  JsonResponse(
+                status=status.HTTP_400_BAD_REQUEST, 
+                data={'errors': f'Layer Name {layer_name} Not Found'}
+            )
 
-            if layer_gdf is None:
-                return  JsonResponse(
-                    status=status.HTTP_400_BAD_REQUEST, 
-                    #data={'errors': f'Layer Name {layer_name} Not Found in SQS. Check list of layers available from URL \'{request.META["HTTP_HOST"]}/api/v1/layers/\''}
-                    data={'errors': f'Layer Name {layer_name} Not Found'}
-                )
+        if attr_name:
+            for attr_val in layer.attr_values:
+                if attr_val['attribute'].casefold()==attr_name.casefold():
+                    return Response([attr_val])
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Attribute {attr_name} not found in {layer_name}.<br><br>Available attrs:<br>{layer.attributes}'})
 
-        filtered_cols = layer_gdf.loc[:, layer_gdf.columns != 'geometry'].columns # exclude column 'goeometry'
         if attrs_only:
             return  Response(dict(
                     layer_name=layer_name,
-                    attributes=filtered_cols
+                    attributes=layer.attributes
                 )
             )
-           
-        if attr_name and attr_name.lower() in filtered_cols.str.lower():
-            filtered_cols = [attr_name.strip()]
-        elif attr_name:
-            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Attribute {attr_name} not found in {layer_name}.<br><br>Available attrs:<br>{list(filtered_cols)}'})
+ 
+        return Response(layer.attr_values)
 
-        data=[]
-        for col in filtered_cols:
-            if col.lower() != 'geometry':
-                data.append(dict(attribute=col, values=layer_gdf[col].dropna().unique().tolist()))
-
-        return  Response(data)
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def clear_cache(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/layers/CPT_LOCAL_GOVT_AREAS/clear_cache/
 
@@ -217,7 +206,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         return  JsonResponse(data={'error': f'Cache not found: {layer_name}'}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def check_queue(self, request, *args, **kwargs):            
         """ Get status of given job
 
@@ -263,7 +252,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
     serializer_class = LayerRequestLogSerializer
     http_method_names = ['get'] #, 'post', 'patch', 'delete']
 
-    @traceback_exception_handler
+    @basic_exception_handler
     def list(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/
@@ -275,9 +264,10 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def request_data(self, request, *args, **kwargs):            
         """
+            http://localhost:8002/api/v1/logs/1742/request_data/?system=das
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?system=das
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das ('full'/'partial'/'single')
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/<proposal_id>/request_data?request_type=full&system=das&when=True
@@ -300,7 +290,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def request_log(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log.json
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log.json             (last request log ID)
@@ -331,7 +321,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def request_log_all(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/logs/766/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all
@@ -371,7 +361,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 #        return Response(serializer.data)
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def get_tasks(self, request, *args, **kwargs):            
         """ http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11
             http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11&all
@@ -429,7 +419,7 @@ class PointQueryViewSet(viewsets.ModelViewSet):
         return Response(status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=False, methods=['GET',])
-    @traceback_exception_handler
+    @basic_exception_handler
     def lonlat_attrs(self, request, *args, **kwargs):            
         ''' Query layer to determine layer properties give latitude, longitude and layer name
 

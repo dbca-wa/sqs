@@ -16,6 +16,7 @@ SELECT = 'select'
 
 DATE_FMT = '%Y-%m-%d'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
+DATETIME_T_FMT = '%Y%m%dT%H%M%S'
 
 
 class HelperUtils():

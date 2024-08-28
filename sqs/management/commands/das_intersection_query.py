@@ -23,7 +23,6 @@ class Command(BaseCommand):
         parser.add_argument('--task_id', type=str, help='Task ID', required=True)
 
     def handle(self, *args, **options):
-        #import ipdb; ipdb.set_trace()
         start_time = time.time()
         task_id = options['task_id']
         logger.info(f'Executing command \'python manage.py das_intersection_query --task_id {task_id}\'')

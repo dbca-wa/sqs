@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from django.utils import timezone
 
 import subprocess
 from datetime import datetime
@@ -9,6 +8,7 @@ import os
 import sys
 import json
 import time
+import pytz
 from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 
 
@@ -22,7 +22,6 @@ class Command(BaseCommand):
     help = 'Runs the queued scripts (in TaskQueue) via the distributor'
 
     def handle(self, *args, **options):
-        #import ipdb; ipdb.set_trace()
         TaskRunner().run()
 
 
@@ -43,7 +42,7 @@ class TaskRunner(object):
                     logger.warn(f'Too many processes spawned. Aborting command \'{cmd}\' ...')
                     continue
 
-                start_time = datetime.now().replace(tzinfo=timezone.utc)
+                start_time = datetime.now().replace(tzinfo=pytz.utc)
                 logger.info('_' * 120)
                 logger.info(f'Executing command \'{cmd}\'')
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
@@ -65,7 +64,25 @@ class TaskRunner(object):
         return f'{task.script} {script_args} --task_id {task.id}'
 
     def next_task_from_queue(self):
-        return Task.queued_jobs.filter().order_by('priority', 'created').first()
+        task = Task.queued_jobs.filter().order_by('priority', 'created').first()
+        if task:
+            if task.retries < settings.MAX_RETRIES:
+                task.retries = task.retries + 1
+                task.save()
+            else:
+                task.status = Task.STATUS_MAX_RETRIES_REACHED
+                task.save()
+        return task
+
+#    def increment_retries(self, task):
+#        if task and task.retries < settings.MAX_RETRIES:
+#            task.retries = task.reries + 1
+#            task.save()
+#        else:
+#            task.status = Task.STATUS_MAX_RETRIES_REACHED
+#            task.save()
+#        return task
+
 
     def num_running_processes(self, cmd):
         ''' Returns the number of scripts/processes running '''
@@ -83,10 +100,9 @@ class TaskRunner(object):
         try:
             task = Task.objects.get(id=task_id)
 
-            #import ipdb; ipdb.set_trace()
             #task.stdout = json.dumps(result.__dict__)
             task.start_time = start_time
-            task.end_time = datetime.now().replace(tzinfo=timezone.utc)
+            task.end_time = datetime.now().replace(tzinfo=pytz.utc)
             task.stdout = result.stdout
             task.stderr = result.stderr
             task.status = Task.STATUS_COMPLETED

@@ -23,7 +23,6 @@ class FirstTimeNagScreenMiddleware(object):
             if (not request.user.first_name) or (not request.user.last_name):# or (not request.user.dob):
                 path_ft = reverse('first_time')
                 path_logout = reverse('accounts:logout')
-                #import ipdb; ipdb.set_trace()
                 if request.path not in (path_ft, path_logout):
                     #return redirect(reverse('first_time')+"?next="+urlquote_plus(request.get_full_path()))
                     return redirect('/accounts/login')

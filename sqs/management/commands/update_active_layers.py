@@ -10,6 +10,13 @@ from sqs.utils.loader_utils import LayerLoader, DbLayerProvider
 import logging
 logger = logging.getLogger(__name__)
 
+'''
+TODO - update script to check for modified date, and update only those found with a newer modified_date
+
+import requests
+r=requests.get('https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/recent/?days_ago=30', auth=(settings.LEDGER_USER,settings.LEDGER_PASS))
+r.json()
+'''
 class Command(BaseCommand):
     """
     Load Layer util
@@ -23,18 +30,17 @@ class Command(BaseCommand):
         now = datetime.now().astimezone(timezone(settings.TIME_ZONE))
         logger.info('Running command {}'.format(__name__))
 
-        for layer in Layer.active_layers.all():
+        for layer in Layer.active_layers.all().order_by('id')[:6]:
             try:
                 # get layer from GeoServer and update SQS layer if changed.
                 new_layer = LayerLoader(name=layer.name, url=layer.url).load_layer()
 
                 if layer.modified_date != new_layer.modified_date:
                     layer_provider = DbLayerProvider(new_layer.name, new_layer.url)
-                    layer_provider.clear_cache()
+                    #layer_provider.clear_cache()
 
-                    layer_info = layer_provider._layer_info(layer)
-                    #layer_provider.set_cache(layer_info, layer.to_gdf)
-                    layer_provider.set_cache(layer_info, layer.geojson)
+                    #layer_info = layer_provider._layer_info(layer)
+                    #layer_provider.set_cache(layer_info, layer.geojson)
 
                     url_text = f'NEW URL: {new_layer.url}' if layer.url != new_layer.url else f'URL: {layer.url}'
                     logger.info(f'Layer Updated: {new_layer.name}, Modified Date: {new_layer.modified_date}, Version: {new_layer.version}\n{url_text}\n{"_"*125}')

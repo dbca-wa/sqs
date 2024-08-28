@@ -8,7 +8,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views import View
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.cache import cache
-from django.utils import timezone
 
 from datetime import datetime, timedelta
 import time
@@ -28,6 +27,7 @@ from sqs.components.api import utils as api_utils
 from sqs.decorators import ip_check_required, basic_exception_handler, traceback_exception_handler, apiview_response_exception_handler
 from sqs.exceptions import LayerProviderException
 from sqs.components.gisquery.utils import set_das_cache, clear_cache
+from sqs.components.gisquery.utils.schema import is_valid_schema
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class DisturbanceLayerView(View):
             return ids
 
         def normalise_datetime(when):
-            ''' drop the decimal seconds, and set timezone UTC 
+            ''' drop the decimal seconds, and set time zone UTC 
                 when --> type is datetime.datetime
                          returns datetime.datetime
             '''
@@ -156,7 +156,6 @@ class DisturbanceLayerQueueView(View):
             request_type = data.get('request_type')
             system = data.get('system')
             requester = data.get('requester')
-            #import ipdb; ipdb.set_trace()
 
             if proposal is None or proposal.get('schema') is None or proposal.get('id') is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Proposal schema specified in Request'})
@@ -171,11 +170,17 @@ class DisturbanceLayerQueueView(View):
             if requester is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No Request User/Email specified in Request'})
 
+            is_valid = is_valid_schema(data)
+            if not is_valid:
+                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Invalid Schema Payload in Request: {is_valid}'})
+
             task_qs = Task.objects.filter(
                 status=Task.STATUS_RUNNING, system=system, app_id=proposal["id"],
             )
             if task_qs.count() > 0:
                 response = {'message': f'Request aborted: Task is already running: Proposal {proposal.get("id")}'}
+
+            request_log = LayerRequestLog.create_log(data, request_type)
 
             task, created = Task.objects.update_or_create(
                 system=system,
@@ -185,7 +190,8 @@ class DisturbanceLayerQueueView(View):
                     'description': f'{system}_{request_type}_{proposal["id"]}',
                     'script': 'python manage.py das_intersection_query', 
                     'parameters': '', 
-                    'data': data,
+                    #'data': data,
+                    'request_log': request_log,
                     'requester': requester,
                 },
             )
@@ -196,9 +202,12 @@ class DisturbanceLayerQueueView(View):
                            }
             else: 
                 # request is an update to an existing queued task 
-                task.data = data,
-                task.requester = requester,
-                task.created = datetime.now().replace(tzinfo=timezone.utc)
+                request_log = task.request_log
+                request_log.data = data
+                request_log.save()
+
+                task.requester = requester
+                task.created = datetime.now().replace(tzinfo=pytz.utc)
                 task.save()
 
                 response = {'data': {'task_id': task.id, 'task_created': created}, 
@@ -223,25 +232,26 @@ class DefaultLayerProviderView(View):
                 2. creates/updates layer from Geoserver
         '''
         try:
-            layer_details = json.loads(request.POST['layer_details'])
+            layer_name = request.POST['layer_name']
+            layer_url = request.POST['layer_url']
+            system = request.POST['system']
 
-            layer_name = layer_details.get('layer_name')
-            url = layer_details.get('layer_url')
+            logger.info(f'Layer Create/Update request from System {system}: {layer_name} - {layer_url}')
 
             if layer_name is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
-            if url is None:
+            if layer_url is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer url specified in Request'})
 
             qs_layer = self.queryset.filter(name=layer_name)
             cur_version = qs_layer[0].version if qs_layer.exists() else None
-            layer_info, layer_gdf = DbLayerProvider(layer_name, url).get_layer_from_geoserver()
+            layer_info, layer_gdf = DbLayerProvider(layer_name, layer_url).get_layer_from_geoserver()
 
         except LayerProviderException as e:
             logger.error(traceback.print_exc())
-            if 'Layer exceeds max' in str(e):
-                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
-            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver if layer/GeoJSON exists. URL: {url}'})
+#            if 'Layer exceeds max' in str(e):
+#                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Layer {layer_name} exceeds max. size of 256MB'})
+            return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'GET Request from SQS to Geoserver failed. Check Geoserver/Source if layer/GeoJSON exists. URL: {layer_url}'})
 
         except Exception as e:
             logger.error(traceback.print_exc())
@@ -304,7 +314,6 @@ class TestView(View):
 #        '''
 #        try:
 #
-#            import ipdb; ipdb.set_trace()
 #            data = request.POST.get('data')
 #            if data is None:
 #                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_details specified in Request'})

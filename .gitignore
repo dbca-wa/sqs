@@ -7,8 +7,10 @@ node_modules/
 .ropeproject/
 mooring/cache/*
 .ropeproject/
+csv
 *.csv
 *.xls*
+data_store/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

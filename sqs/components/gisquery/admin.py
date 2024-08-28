@@ -1,14 +1,18 @@
 from django.contrib import admin
 from django.utils.html import escape, mark_safe
-from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
+from django.conf import settings
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task, earliest_date
+
+from django.utils import timezone
+from datetime import datetime, timedelta
 
 @admin.register(Layer)
 class LayerAdmin(admin.ModelAdmin):
     list_display = ["name", "url", "layer_version", "active"] #, 'link_to_geojson']
     list_filter = ["active"]
     search_fields = ['name__icontains']
-    #readonly_fields = ('geojson',)
-    exclude = ['geojson']
+    #readonly_fields = ('geojson_file',)
+    #exclude = ['geojson']
 
     def layer_version(self, obj):
         if obj.name:
@@ -39,7 +43,7 @@ class LayerRequestLogAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['id', 'system', 'app_id', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api']
+    list_display = ['id', 'system', 'app_id', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api', 'created']
     list_filter = ["status", "priority", "system"]
     search_fields = ['description', 'script', 'status', 'priority']
     readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'created_date') #, 'data')
@@ -68,8 +72,12 @@ class TaskAdmin(admin.ModelAdmin):
     link_to_request_log_api.allow_tags=True
 
     def task_status(self, obj):
+        if obj.created < earliest_date() and obj.status==Task.STATUS_CREATED:
+            return obj.status + ' (stale)'
+
         if obj.request_log:
             return mark_safe(f'<a href="/admin/sqs/layerrequestlog/{obj.request_log.id}/change/" target="_blank">{obj.status}</a>' )
+
         return obj.status
     task_status.allow_tags=True
 

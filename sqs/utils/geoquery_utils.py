@@ -4,6 +4,7 @@ from django.db import transaction
 from django.core.cache import cache
 from rest_framework import status
 
+import gc
 import pandas as pd
 import geopandas as gpd
 import requests
@@ -14,9 +15,10 @@ import pytz
 import traceback
 from datetime import datetime
 import time
+import itertools
 
 from sqs.components.gisquery.models import Layer #, Feature#, LayerHistory
-from sqs.utils.loader_utils import DbLayerProvider
+from sqs.utils.loader_utils import DbLayerProvider, print_system_memory_stats
 from sqs.utils.helper import (
     DefaultOperator,
     #HelperUtils,
@@ -60,60 +62,47 @@ class DisturbanceLayerQueryHelper():
 
         return mpoly
 
-    def add_buffer(self, cddp_question):
+    def add_buffer(self, layer, layer_crs):
         '''
-        Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
+        1. Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
         add buffer (in meters) to the new projection, then reverts the buffered polygon to 
         the original projection
 
+        2. Converts to a mpoly to a common CRS (same as layer's CRS) --> to allow overlay
+
         Input: buffer_size -- in meters
 
-        Returns the the original polygon, perimeter increased by the buffer size
+        Returns the the original polygon, perimeter increased/decreased by the buffer size and converted to a common CRS
         '''
-        mpoly = self.geojson
-        if 'POLYGON' not in str(mpoly):
-            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly}.')
+
+        mpoly_gdf = self.geojson
+        if layer_crs.lower() != mpoly_gdf.crs.srs.lower():
+            # need a common CRS before overlaying shapefile with layer
+            mpoly_gdf.to_crs(layer_crs, inplace=True)
+
+        if 'POLYGON' not in str(mpoly_gdf):
+            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly_gdf}.')
 
         try:
-            buffer_size = cddp_question['buffer']
-            if buffer_size:
-                crs_orig =  mpoly.crs.srs
+            # if buffer specified in layer definition, increase the perimeter by the buffer amount. Otherwise, 
+            # reduce the perimeter by settings.DEFAULT_BUFFER
+            buffer_size = layer['buffer'] if layer['buffer'] else settings.DEFAULT_BUFFER
+            if buffer_size and buffer_size != 0:
+                crs_orig =  mpoly_gdf.crs
 
                 # convert to new projection so that buffer can be added in meters
-                mpoly_cart = mpoly.to_crs(settings.CRS_CARTESIAN)
-                mpoly_cart['geometry'] = mpoly_cart['geometry'].buffer(buffer_size)
+                mpoly_cart_gdf = mpoly_gdf.to_crs(settings.CRS_CARTESIAN)
+                mpoly_cart_gdf['geometry'] = mpoly_cart_gdf['geometry'].buffer(buffer_size)
 
                 # revert to original projection
-                mpoly_buffer = mpoly_cart.to_crs(crs_orig)
+                mpoly_buffer_gdf = mpoly_cart_gdf.to_crs(crs_orig)
 
-                return mpoly_buffer
+                return mpoly_buffer_gdf
             
         except Exception as e:
-            logger.error(f'Error adding buffer {buffer_size} to polygon for CDDP Question {cddp_question}.\n{e}')
+            logger.error(f'Error adding buffer {buffer_size} to polygon.\n{e}')
             
-        return mpoly
-
-    def overlay_how(self, how):
-        """
-        overlay.how options available (in geopandas) => ['interesection', 'union', 'difference', 'symmetrical difference']
-                            supported (in SQS)       => ['interesection', 'difference']
-        """
-        if how=='Overlapping':
-            return 'intersection'
-        elif how=='Outside':
-            #return 'difference'
-            return 'symmetric_difference'
-        else:
-            logger.error(f'Error: Unknown "how" operator: {how}')
-
-#    def get_unique_layer_list(self):
-#        unique_layer_list = []
-#        for question_group in self.masterlist_questions:
-#            for question in question_group['questions']:
-#                _dict = dict(layer_name=question['layer_name'], layer_url=question['layer_url'])
-#                if _dict not in unique_layer_list:
-#                    unique_layer_list.append(_dict)
-#        return unique_layer_list
+        return mpoly_gdf
 
     def get_attributes(self, layer_gdf):
         cols = layer_gdf.columns.drop(['id','md5_rowhash', 'geometry'])
@@ -129,51 +118,9 @@ class DisturbanceLayerQueryHelper():
         Return the entire question group. 
         For example, given a radiobutton or checkbox question, return the all question/answer combinations for that question
         """
-
-#        def reorder_mlq():
-#            ''' Reorders the masterlist_questions in the question_group, sorting layer_names '''
-#            ordered_question_group = []
-#            ordered_multiple_question_group = []
-#    
-#            mlq_unique_layers = list(set([question_group['questions'][0]['layer']['layer_name'] for question_group in self.masterlist_questions]))
-#            for unique_layer_name in mlq_unique_layers:
-#                for question_group in self.masterlist_questions:
-#                    #for question in question_group['questions']:
-#                    first_question = question_group['questions'][0]
-#                    layer_name = first_question['layer']['layer_name']
-#                    if layer_name == unique_layer_name:
-#                        if len(question_group['questions']) == 1:
-#                            ordered_question_group.append(question_group)
-#                        else:
-#                            ordered_multiple_question_group.append(question_group)
-#    
-#            return ordered_question_group + ordered_multiple_question_group
-
-        def reorder_question_group():
-            ''' Reorders the questions in the question_group , sorting layer_names. Sort Nested Multiples Questions by layer_name'''
-            ordered_question_group = dict(question_group=question_group['question_group'])
-            ordered_questions = []
-            for unique_layer_name in unique_layers:
-                for question in question_group['questions']:
-                    layer_name = question['layer']['layer_name']
-                    if layer_name == unique_layer_name:
-                        ordered_questions.append(question)
-            ordered_question_group.update(dict(questions=ordered_questions))
-            return ordered_question_group
-
         try:
-            #reordered_masterlist_questions = reorder_mlq()
-            #for question_group in reordered_masterlist_questions:
-            #for question_group in reordered_masterlist_questions:
-            #    print(len(question_group['questions']), question_group['questions'][0]['layer']['layer_name'], question_group['question_group'][:30])
-
-            #for question_group in reordered_masterlist_questions:
             for question_group in self.masterlist_questions:
                 if question_group['question_group'] == question:
-                    #return question_group
-                    unique_layers = list(set([question['layer']['layer_name'] for question in question_group['questions']]))
-                    if len(unique_layers) > 1:
-                        return reorder_question_group()
                     return question_group
 
         except Exception as e:
@@ -184,11 +131,11 @@ class DisturbanceLayerQueryHelper():
     def set_metrics(self, cddp_question, layer_provider, expired, condition, time_retrieve_layer, time_taken, error):
         self.metrics.append(
             dict(
-                question=cddp_question['question'],
+                question=cddp_question['masterlist_question']['question'],
                 answer_mlq=cddp_question['answer_mlq'],
                 expired=expired,
                 layer_name=layer_provider.layer_name,
-                layer_cached=layer_provider.layer_cached,
+                #layer_cached=layer_provider.layer_cached,
                 condition=condition,
                 time_retrieve_layer=round(time_retrieve_layer, 3),
                 time=round(time_taken, 3),
@@ -200,7 +147,160 @@ class DisturbanceLayerQueryHelper():
         )
         return self.metrics
 
+    def get_overlay_gdf(self, layer_gdf, mpoly, how, column_name):
+        ''' how = ['intersection','symmetric_difference','difference']
+        '''
+
+        # how='Overlapping' - get layer features 'intersected by' mpoly
+        overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
+        if how=='Outside':
+            # all layer features completely outside mpoly
+            overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
+
+        elif how=='Inside':
+            # all layer features completely within/inside mpoly
+            diff_gdf = layer_gdf.overlay(mpoly, how='difference', keep_geom_type=False)
+            overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( diff_gdf[column_name].unique() )]
+
+        if column_name not in overlay_gdf.columns:
+            _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
+            error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
+            logger.error(error_msg)
+
+        return overlay_gdf
+
     def spatial_join_gbq(self, question, widget_type):
+        '''
+        Process new Question (grouping by like-questions) and results stored in cache 
+
+        NOTE: All questions for the given layer 'layer_name' will be processed by 'spatial_join()' and results stored in cache. 
+              This will save time reloading and querying layers for questions from the same layer_name. 
+              It is CPU cost effective to query all questions for the same layer now, and cache results for 
+              subsequent potential question/answer queries.
+        '''
+
+        def unique_list(_list):
+            return list(set(_list))
+
+        def to_str(_list):
+            return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
+
+        try:
+            error_msg = ''
+            today = datetime.now(pytz.timezone(settings.TIME_ZONE))
+            layer_info = {}
+            expired = False
+            layer_res = []
+            question_group_res = []
+
+            grouped_questions = self.get_grouped_questions(question)
+            if len(grouped_questions)==0:
+                return question_group_res
+
+#            if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
+#                import ipdb; ipdb.set_trace()
+
+            for cddp_question in grouped_questions['questions']:
+                start_time = time.time()
+
+                layer_res = []
+                for layer in cddp_question['layers']:
+                 
+                    layer_name = layer['layer']['layer_name']
+                    layer_url = layer['layer']['layer_url']
+
+                    layer_question_expiry = datetime.strptime(layer['expiry'], DATE_FMT).date() if layer['expiry'] else None
+                    if layer_question_expiry is None or layer_question_expiry >= today.date():
+
+                        start_time_retrieve_layer = time.time()
+
+                        answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
+                        logger.info('---------------------------------------------------------------------------------------------')
+                        logger.info(f'{layer_name} - Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("masterlist_question")["question"][:25]}\' {answer_str} ...')
+          
+                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
+                        layer_info, layer_gen = layer_provider.get_layer_generator()
+
+                        time_retrieve_layer = time.time() - start_time_retrieve_layer
+                        how = layer['how']
+                        column_name = layer['column_name']
+                        operator = layer['operator']
+                        value = layer['value']
+                        layer_crs = layer_info['layer_crs']
+                        mpoly = self.add_buffer(layer, layer_crs)
+
+                        operator_result = []
+                        proponent_answer = []
+                        assessor_answer = []
+
+                        print_system_memory_stats(f'Ready to load layer {layer_name}')
+                        for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
+                            features_batch = features.get('features')
+                            #for feature in features:
+                            if features_batch:
+                                layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
+                                layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
+                                print_system_memory_stats(f'{idx}-{layer_name}')
+
+                                overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
+                                op = DefaultOperator(layer, overlay_gdf, widget_type)
+
+                                operator_result  += op.operator_result()
+                                proponent_answer += op.proponent_answer()
+                                assessor_answer  += op.assessor_answer()
+
+                        operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
+                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
+                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(assessor_answer))
+
+                        logger.info(f'Operator Result: {operator_result}'[:200])
+                        condition = f'{column_name} -- {operator}'
+                        if operator != 'IsNotNull':
+                            condition += f' -- {value}'
+
+                        res = dict(
+                                visible_to_proponent=layer['visible_to_proponent'],
+                                layer_details = dict(**layer_info,
+                                    column_name=column_name,
+                                    sqs_timestamp=today.strftime(DATETIME_FMT),
+                                    error_msg = error_msg,
+                                ),
+                                condition=[how, condition],
+                                operator_response=operator_result,
+                                proponent_answer=proponent_answer,
+                                assessor_answer=assessor_answer,
+                            )
+                        layer_res.append(res)
+
+                        self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
+                        logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
+
+                    else:
+                        logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question["masterlist_question"]["question"]} - {layer_name}')
+                        expired = True
+
+                question_group_res.append(
+                    dict(
+                        question=cddp_question['masterlist_question']['question'],
+                        answer=cddp_question['answer_mlq'],
+                        other_data=cddp_question['other_data'],
+                        layers=layer_res,
+                    )
+                )
+
+
+        except Exception as e: 
+            logger.error(e)
+            #self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
+
+#        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
+            #import ipdb; ipdb.set_trace()
+
+        gc.collect()
+        return question_group_res
+
+
+    def _spatial_join_gbq(self, question, widget_type):
         '''
         Process new Question (grouping by like-questions) and results stored in cache 
 
@@ -213,121 +313,139 @@ class DisturbanceLayerQueryHelper():
         try:
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
-            response = []
             layer_info = {}
             expired = False
+            layer_res = []
+            question_group_res = []
 
             grouped_questions = self.get_grouped_questions(question)
             if len(grouped_questions)==0:
-                return response
+                return question_group_res
+
+#            if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
+#                import ipdb; ipdb.set_trace()
 
             for cddp_question in grouped_questions['questions']:
                 start_time = time.time()
 
-                question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
-                if question_expiry is None or question_expiry >= today.date():
+#                question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
+#                if question_expiry is None or question_expiry >= today.date():
+                layer_res = []
+                for layer in cddp_question['layers']:
                  
-                    start_time_retrieve_layer = time.time()
-                    layer_name = cddp_question['layer']['layer_name']
-                    layer_url = cddp_question['layer']['layer_url']
+                    layer_name = layer['layer']['layer_name']
+                    layer_url = layer['layer']['layer_url']
 
-                    answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
-                    logger.info('---------------------------------------------------------------------------------------------')
-                    logger.info(f'Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("question")[:25]}\' {answer_str} ...')
-      
-                    if layer_name != layer_info.get('layer_name'):
-                        # layer name not available in memory - retrieve/re-retrieve
+                    layer_question_expiry = datetime.strptime(layer['expiry'], DATE_FMT).date() if layer['expiry'] else None
+                    if layer_question_expiry is None or layer_question_expiry >= today.date():
+
+                        start_time_retrieve_layer = time.time()
+
+                        answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
+                        logger.info('---------------------------------------------------------------------------------------------')
+                        logger.info(f'Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("masterlist_question")["question"][:25]}\' {answer_str} ...')
+          
+    #                    if layer_name != layer_info.get('layer_name'):
+    #                        # layer name not available in memory - retrieve/re-retrieve
+    #                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
+    #                        layer_info, layer_gdf = layer_provider.get_layer()
+    #                    else:
+    #                        logger.info(f'Layer {layer_name} already in memory ...')
                         layer_provider = DbLayerProvider(layer_name, url=layer_url)
                         layer_info, layer_gdf = layer_provider.get_layer()
+                        print_system_memory_stats()
+
+                        time_retrieve_layer = time.time() - start_time_retrieve_layer
+
+                        how = layer['how']
+                        column_name = layer['column_name']
+                        operator = layer['operator']
+                        value = layer['value']
+
+            #            if cddp_question['question']=='1.0 Proposal title':
+            #                pass
+
+                        how = self.overlay_how(how) # ['interesection', 'difference']
+
+                        mpoly = self.add_buffer(cddp_question, layer)
+                        if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
+                            mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
+
+#                        # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetric_difference' we will
+#                        # compute 'intersection' and filter the intersected features from the layer_gdf.
+#                        # That is, for both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
+#                        overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
+#
+#    #                    # filter layer intersections with very low area/boundary_length ratios
+#    #                    overlay_cart_gdf = overlay_gdf.to_crs(settings.CRS_CARTESIAN)
+#    #                    overlay_cart_gdf = overlay_cart_gdf[[(overlay_cart_gdf.area/overlay_cart_gdf.length > settings.GEOM_AREA_LENGTH_FILTER) & ((overlay_cart_gdf.area/overlay_cart_gdf.length).isna())]]
+#    #                    overlay_gdf = overlay_cart_gdf.to_crs(layer_gdf.crs.srs)
+#
+#                        if column_name not in overlay_gdf.columns:
+#                            _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
+#                            error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
+#                            logger.error(error_msg)
+#
+#                        if how == 'intersection':
+#                            # already computed above
+#                            pass
+#                        else:
+#                            # equivalent to 'symmetrical difference', but re-introducing very low area/boundary_length ratios, features which would otherwise be omitted
+#                            overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
+
+                        overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
+
+                        # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
+                        op = DefaultOperator(layer, overlay_gdf, widget_type)
+                        operator_result  = op.operator_result()
+                        proponent_answer = op.proponent_answer()
+                        assessor_answer  = op.assessor_answer()
+
+                        logger.info(f'Operator Result: {operator_result}'[:200])
+                        condition = f'{column_name} -- {operator}'
+                        if operator != 'IsNotNull':
+                            condition += f' -- {value}'
+
+                        res = dict(
+                                visible_to_proponent=layer['visible_to_proponent'],
+                                layer_details = dict(**layer_info,
+                                    column_name=column_name,
+                                    sqs_timestamp=today.strftime(DATETIME_FMT),
+                                    error_msg = error_msg,
+                                ),
+                                condition=[how, condition],
+                                #operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
+                                operator_response=operator_result,
+                                proponent_answer=proponent_answer,
+                                assessor_answer=assessor_answer,
+                            )
+                        layer_res.append(res)
+
+                        self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
+                        logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
+
                     else:
-                        logger.info(f'Layer {layer_name} already in memory ...')
+                        logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question["masterlist_question"]["question"]} - {layer_name}')
+                        expired = True
 
-                    time_retrieve_layer = time.time() - start_time_retrieve_layer
+                question_group_res.append(
+                    dict(
+                        question=cddp_question['masterlist_question']['question'],
+                        answer=cddp_question['answer_mlq'],
+                        other_data=cddp_question['other_data'],
+                        layers=layer_res,
+                    )
+                )
 
-                    how = cddp_question['how']
-                    column_name = cddp_question['column_name']
-                    operator = cddp_question['operator']
-                    value = cddp_question['value']
-
-        #            if cddp_question['question']=='1.0 Proposal title':
-        #                pass
-
-                    how = self.overlay_how(how) # ['interesection', 'difference']
-
-                    mpoly = self.add_buffer(cddp_question)
-                    if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
-                        mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
-
-                    # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetetric_difference' we will
-                    # compute 'intersection' and filter the intersected features from the layer_gdf.
-                    # That is, fo both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
-                    overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
-
-#                    # filter layer intersections with very low area/boundary_length ratios
-#                    overlay_cart_gdf = overlay_gdf.to_crs(settings.CRS_CARTESIAN)
-#                    overlay_cart_gdf = overlay_cart_gdf[[(overlay_cart_gdf.area/overlay_cart_gdf.length > settings.GEOM_AREA_LENGTH_FILTER) & ((overlay_cart_gdf.area/overlay_cart_gdf.length).isna())]]
-#                    overlay_gdf = overlay_cart_gdf.to_crs(layer_gdf.crs.srs)
-
-                    if column_name not in overlay_gdf.columns:
-                        _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
-                        error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
-                        logger.error(error_msg)
-
-                    if how == 'intersection':
-                        # already computed above
-                        pass
-                    else:
-                        # equivalent to 'symmetrical difference', but re-introducing very low area/boundary_length ratios, features which would otherwise be omitted
-                        overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
-
-                    # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
-                    op = DefaultOperator(cddp_question, overlay_gdf, widget_type)
-                    operator_result = op.operator_result()
-                    logger.info(f'Operator Result: {operator_result}')
-                    condition = f'{column_name} -- {operator}'
-                    if operator != 'IsNotNull':
-                        condition += f' -- {value}'
-
-                    res = dict(
-                            question=cddp_question['question'],
-                            answer=cddp_question['answer_mlq'],
-                            visible_to_proponent=cddp_question['visible_to_proponent'],
-                            layer_details = dict(**layer_info,
-                                sqs_timestamp=today.strftime(DATETIME_FMT),
-                                error_msg = error_msg,
-                            ),
-                            condition=[how, condition],
-                            operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
-                            proponent_answer=op.proponent_answer(),
-                            assessor_answer=op.assessor_answer(),
-                            add_info_section_prop=cddp_question['show_add_info_section_prop'],
-                        )
-                    response.append(res)
-                else:
-                    logger.warn(f'Expired {question_expiry}: Ignoring question {cddp_question}')
-                    expired = True
-
-                self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
-                logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
 
         except Exception as e: 
             logger.error(e)
-            self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
+            #self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
 
-        return response
+#        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
+#            import ipdb; ipdb.set_trace()
 
-    def get_processed_question(self, question, widget_type):
-        ''' Gets or Sets processed (spatial_join executed) question from cache 
-            NOTE: processed questions caching not implemented
-        '''
-        processed_questions = []
-        try:
-            processed_questions = self.spatial_join_gbq(question, widget_type)
-        except Exception as e:
-            logger.error(traceback.print_exc())
-            logger.error(f'Error Searching Question combination in SQS Cache/Spatial Join: \'{question}\'\n{e}')
-
-        return processed_questions
+        return question_group_res
 
     def query_question(self, item, answer_type):
 
@@ -338,6 +456,7 @@ class DisturbanceLayerQueryHelper():
                     for layer_detail in response['layer_details']:
                         question = layer_detail['question']['question']
                         answer_mlq = layer_detail['question']['answer']
+                        layers = layer_detail['question']['layers']
                         for idx, metric in enumerate(self.metrics):
                             if metric['question']==question and metric['answer_mlq']==answer_mlq:
                                 if response['result']:
@@ -346,8 +465,10 @@ class DisturbanceLayerQueryHelper():
                                     proponent_answer = layer_detail['question']['proponent_answer']
                                     metric.update({'result': proponent_answer})
 
-                                assessor_answer = layer_detail['question']['assessor_answer']
-                                operator_response = ', '.join(map(str, layer_detail['question']['operator_response']))
+                                #assessor_answer = layer_detail['question']['assessor_answer']
+                                assessor_answer = str([i['assessor_answer'] for i in layers])
+                                #operator_response = ', '.join(map(str, layer_detail['question']['operator_response']))
+                                operator_response = str([i['operator_response'] for i in layers])
                                 operator_response = operator_response[:RESPONSE_LEN] + ' ...' if len(operator_response)>RESPONSE_LEN else operator_response
                                 metric.update({'assessor_answer': assessor_answer})
                                 metric.update({'operator_response': operator_response})
@@ -392,7 +513,8 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
@@ -402,19 +524,25 @@ class DisturbanceLayerQueryHelper():
                 value = item['value']
                 # return first checked radiobutton in order rb's appear in 'item_option_labels' (schema question)
                 for question in processed_questions:
-                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
+                    for layer in question['layers']:
+                        #details = question['layer_details']
+                        details = layer['layer_details']
+                        #if label not in result and label.casefold() == question['answer'].casefold() and len(layer['operator_response'])>0:
+                        if label.casefold() == question['answer'].casefold() and len(layer['operator_response'])>0:
 
-                        raw_data = question
-                        details = raw_data.pop('layer_details', None)
+                            raw_data = layer
+                            details = raw_data.pop('layer_details', None)
 
-                        response =  dict(
-                            result=label,
-                            assessor_info=[],
-                            layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
-                        )
-                        if label or value:
-                            # return first match found
+                            response =  dict(
+                                result=label,
+                                assessor_info=[],
+                                layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
+                            )
+
                             return response
+                        else:
+                            #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer details["layer_name"]')
+                            pass
 
         except Exception as e:
             logger.error(f'RADIOBUTTON: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -437,7 +565,8 @@ class DisturbanceLayerQueryHelper():
             item_options    = item['children']
 
             item_options_dict = [dict(name=i['name'], label=i['label']) for i in item_options]
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
@@ -447,13 +576,17 @@ class DisturbanceLayerQueryHelper():
                 name = _d['name']
                 label = _d['label']
                 for question in processed_questions:
-                    if label.casefold() == question['answer'].casefold() and len(question['operator_response'])>0:
-
-                        result.append(label) # result is in an array list 
-                        raw_data = question
-                        details = raw_data.pop('layer_details', None)
-                        # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
-                        layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
+                    for layer in question['layers']:
+                        if label not in result and label.casefold() == question['answer'].casefold() and len(layer['operator_response'])>0:
+                            result.append(label) # result is in an array list 
+                            #raw_data = question
+                            raw_data = layer
+                            details = raw_data.pop('layer_details', None)
+                            # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
+                            layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
+                        else:
+                            #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer layer["layer_details"]')
+                            pass
 
             response =  dict(
                 result=result,
@@ -479,32 +612,42 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions) != 1:
-                # for multi-select questions, there must be only one question
-                logger.error(f'SELECT: For select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
-                return {}
-            question = processed_questions[0]
-
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
+#            if len(processed_questions) != 1:
+#                # for multi-select questions, there must be only one question
+#                logger.error(f'SELECT: For select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
+#                return {}
+#            question = processed_questions[0]
             item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
-            operator_response = question['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
+            for question in processed_questions:
+                for layer in question['layers']:
 
-            # return only those labels that are in the available choices to the proponent
-            # case-insensitive intersection. returns labels found in both lists
-            labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
-            #labels_found = [str.casefold(x) for x in operator_response]
-            labels_found.sort()
+                    #operator_response = question['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
+                    operator_response = layer['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
-            raw_data = question
-            details = raw_data.pop('layer_details', None)
-            if len(labels_found)>0:
-                result = labels_found[0] # return the first one found
-                response =  dict(
-                    result=result, # returns str
-                    #assessor_info=[question['assessor_answer']],
-                    assessor_info=[],
-                    layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
-                )
+                    # return only those labels that are in the available choices to the proponent
+                    # case-insensitive intersection. returns labels found in both lists
+                    labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+                    #labels_found = [str.casefold(x) for x in operator_response]
+                    labels_found.sort()
+
+                    #raw_data = question
+                    raw_data = layer
+                    details = raw_data.pop('layer_details', None)
+                    if len(labels_found)>0:
+                        result = labels_found[0] # return the first one found
+                        response =  dict(
+                            result=result, # returns str
+                            #assessor_info=[question['assessor_answer']],
+                            assessor_info=[],
+                            #layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
+                            layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
+                        )
+                        return response
+                    else:
+                        #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer details["layer_name"]')
+                        pass
 
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
@@ -524,35 +667,42 @@ class DisturbanceLayerQueryHelper():
             schema_section = item['name']
             item_options   = item['options']
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
-            if len(processed_questions) != 1:
-                # for multi-select questions, there must be only one question
-                logger.error(f'MULTI-SELECT: For multi-select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
-                return {}
-            question = processed_questions[0]
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
+#            if len(processed_questions) != 1:
+#                # for multi-select questions, there must be only one question
+#                logger.error(f'MULTI-SELECT: For multi-select question, there must be only one question, {len(processed_questions)} found: \'{question}\'')
+#                return {}
+#            question = processed_questions[0]
 
             item_labels = [i['label'] for i in item_options] # these are the available answer options proponent can choose from
-            operator_response = question['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
+            for question in processed_questions:
+                for layer in question['layers']:
+                    operator_response = layer['operator_response'] # these are the answers from the query intersection/difference (truncated to no. of polygons/answers to return)
 
-            # return only those labels that are in the available choices to the proponent
-            # case-insensitive intersection. returns labels found in both lists
-            labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
-            #labels_found = [str.casefold(x) for x in operator_response]
-            labels_found.sort()
+                    # return only those labels that are in the available choices to the proponent
+                    # case-insensitive intersection. returns labels found in both lists
+                    labels_found = list({str.casefold(x) for x in item_labels} & {str.casefold(x) for x in operator_response})
+                    #labels_found = [str.casefold(x) for x in operator_response]
+                    labels_found.sort()
 
-            raw_data = question
-            details = raw_data.pop('layer_details', None)
-            if labels_found:
-                result = list(set(labels_found))
-                response =  dict(
-                    result=result,
-                    #assessor_info=[question['assessor_answer']],
-                    assessor_info=[],
-                    layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
-                )
+                    raw_data = layer
+                    details = raw_data.pop('layer_details', None)
+                    if labels_found:
+                        result = list(set(labels_found))
+                        response =  dict(
+                            result=result,
+                            #assessor_info=[question['assessor_answer']],
+                            assessor_info=[],
+                            layer_details=[dict(name=schema_section, label=result, details=details, question=question)]
+                        )
+                        return response
+                    else:
+                        #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {operator_response} not found from layer {details["layer_name"]}')
+                        pass
 
         except Exception as e:
-            logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
+            logger.error(f'MULTI-SELECT: Searching Question in SQS processed_questions dict: \'{question["question"][:25]}\'\n{e}')
 
         return response
 
@@ -562,6 +712,13 @@ class DisturbanceLayerQueryHelper():
             exists in item_options (from proposal.schema)
 
             Returns --> str 
+
+            list1 = ['fox', 'rabbit', 'tiger']
+            list2 = [12, 13]
+            zipped_list = list(itertools.zip_longest(list1, list2, fillvalue ='_' ))
+            [', '.join(map(str, i)) for i in zipped_list]
+
+            Out[1]: ['fox, 12', 'rabbit, 13', 'tiger, _']
         '''
         response = {}
         question = {}
@@ -570,20 +727,68 @@ class DisturbanceLayerQueryHelper():
             schema_section  = item['name']
             schema_label    = schema_question
 
-            processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            #processed_questions = self.get_processed_question(schema_question, widget_type=item['type'])
+            processed_questions = self.spatial_join_gbq(schema_question, widget_type=item['type'])
             if len(processed_questions)==0:
                 return {}
 
-            layer_details=[]
-            if len(processed_questions)>0:
-                question = processed_questions[0] 
-                details = question.pop('layer_details', None)
-                label = question['proponent_answer'] if question['proponent_answer'] else None
-                response =  dict(
-                    #assessor_info = question['assessor_answer'],
-                    result=label,
-                    assessor_info = question['assessor_answer'],
-                    layer_details=[dict(name=schema_section, label=label, details=details, question=question)]
+            layer_name = ''
+            error_msg = ''
+            layers_agg = []
+            grouped_label = []
+            grouped_resp_agg = ''
+            proponent_resp_agg = ''
+            assessor_resp_agg = ''
+            for idx, question in enumerate(processed_questions):
+                layer_details = []
+                for layer in question['layers']:
+                    details = layer.pop('layer_details', None)
+                    label = layer['proponent_answer'] if layer['proponent_answer'] else None
+                    assessor_info = layer['assessor_answer']
+
+                    proponent_resp_agg += layer['proponent_answer'] + "\n\n"
+                    assessor_resp_agg += layer['assessor_answer'] + "\n\n"
+
+                    #print(layer)
+                    #print(label)
+                    #print()
+
+                    layers_agg.append(
+                        dict(
+                            layer_name=details['layer_name'],
+                            layer_version=details['layer_version'],
+                            layer_created_date=details['layer_created_date'],
+                            layer_modified_date=details['layer_modified_date'],
+                            sqs_timestamp=details['sqs_timestamp'],
+                            visible_to_proponent=layer['visible_to_proponent'],
+                            condition=layer['condition'],
+                            operator_response=layer['operator_response'],
+                            proponent_answer=layer['proponent_answer'],
+                            assessor_answer=layer['assessor_answer'],
+                            error_msg=details['error_msg'],
+                        )
+                    ) 
+
+                proponent_resp_agg = proponent_resp_agg.strip('\n')
+                assessor_resp_agg = assessor_resp_agg.strip('\n')
+                details_agg = dict(
+                        layer_name=', '.join([i['layer_name'] for i in layers_agg]),
+                        layer_version=details['layer_version'] if details else '',
+                        layer_created_date=details['layer_created_date'] if details else '',
+                        layer_modified_date=details['layer_modified_date'] if details else '',
+                        sqs_timestamp=details['sqs_timestamp'] if details else '',
+                    )
+
+            question_agg = dict(
+                question=question['question'] if question else '',
+                answer=question['answer'] if question else '',
+                other_data=question['other_data'] if question else '',
+                layers=layers_agg,
+            )
+            response = dict(
+                    result=proponent_resp_agg,
+                    assessor_info = assessor_resp_agg,
+                    layer_details=[dict(name=schema_section, label=proponent_resp_agg, details=details_agg, question=question_agg)]
                 )
 
         except LayerProviderException as e:
@@ -591,6 +796,7 @@ class DisturbanceLayerQueryHelper():
         except Exception as e:
             logger.error(f'SELECT: Searching Question in SQS processed_questions dict: \'{question}\'\n{e}')
 
+        #print(f'response: {response}')
         return response
 
 
@@ -609,7 +815,7 @@ class PointQueryHelper():
     def spatial_join(self, predicate='within'):
 
         layer = Layer.objects.get(name=self.layer_name)
-        layer_gdf = layer.to_gdf
+        layer_gdf = layer.to_gdf(all_features=True)
 
         # Lat Long for Kalgoolie, Goldfields
         # df = pd.DataFrame({'longitude': [121.465836], 'latitude': [-30.748890]})

@@ -52,8 +52,22 @@ CHECK_IP = env('CHECK_IP', True)
 # Use 'epsg:4326' as projected coordinate system - 'epcg:4326' coordinate system is in meters (Then the buffer distance will be in meters)
 CRS = env('CRS', 'epsg:4326')
 CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
-GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
-MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', 256) # MB
+#GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
+DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in meters
+MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', None) # MB
+GEOJSON_BATCH_SIZE = env('GEOJSON_BATCH_SIZE', 1000)
+SHOW_SYS_MEM_STATS = env('SHOW_SYS_MEM_STATS', False)
+MAX_RETRIES = env('MAX_RETRIES', 3)
+STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
+
+KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
+KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
+KB_LAYER_URL = KB_BASE_URL + 'catalogue/entries/{}/layer/'
+KB_EXCLUDE_LAYERS = env('KB_EXCLUDE_LAYERS', [])
+#KB_RECENT_LAYERS_URL = env('KB_RECENT_LAYERS_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/recent/?days_ago=')
+DATA_STORE = env('DATA_STORE', 'data_store') # MB
+if not os.path.exists(DATA_STORE):
+    os.makedirs(DATA_STORE)
 
 LANGUAGE_CODE = 'en-AU'
 TIME_ZONE = 'Australia/Perth'
@@ -89,6 +103,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
+    'django_cron',
 
     'reversion_compare',
     'bootstrap3',
@@ -234,7 +249,7 @@ LOGGING = {
     'version': 1,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(asctime)s [%(filename)s:%(lineno)d] %(message)s'
+            'format': '%(levelname)s %(asctime)s [%(filename)s.%(funcName)s:%(lineno)d] %(message)s'
         },
     },
     'handlers': {
@@ -250,6 +265,14 @@ LOGGING = {
             'formatter': 'verbose',
             'maxBytes': 5242880
         },
+        'debug': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'sys_stats.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5242880
+        },
+
     },
     'loggers': {
         '': {
@@ -270,14 +293,20 @@ LOGGING = {
             'handlers': ['file'],
             'level': 'INFO'
         },
+        'sys_stats': {
+            'handlers': ['debug'],
+            'level': 'DEBUG'
+        },
+
     }
 }
 
 # Additional logging for sqs
-LOGGING['loggers']['sqs'] = {
-            'handlers': ['file'],
-            'level': 'INFO'
-        }
+#LOGGING['loggers']['sqs'] = {
+#            'handlers': ['file'],
+#            'level': 'INFO'
+#        }
+
 DEFAULT_AUTO_FIELD='django.db.models.AutoField'
 
 # for testing

@@ -63,7 +63,6 @@ def apiview_response_exception_handler(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            #import ipdb; ipdb.set_trace()
             return func(*args, **kwargs)
         except KeyError as e:
             logger.error(traceback.print_exc())
@@ -78,7 +77,6 @@ def apiview_response_exception_handler(func):
 def basic_exception_handler(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        #import ipdb; ipdb.set_trace()
         try:
             return func(*args, **kwargs)
 
