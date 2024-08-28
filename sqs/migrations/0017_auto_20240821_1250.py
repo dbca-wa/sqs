@@ -32,17 +32,17 @@ class Migration(migrations.Migration):
             name='name',
             field=models.CharField(max_length=128, unique=True),
         ),
-        migrations.CreateModel(
-            name='GeoJsonFile',
-            fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('index', models.IntegerField(default=0, editable=False)),
-                ('geojson_file', models.FileField(max_length=512, upload_to=sqs.components.gisquery.models.geojson_file_path)),
-                ('layer', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='geojson_files', to='sqs.layer')),
-            ],
-        ),
-#        migrations.AlterUniqueTogether(
-#            name='geojsonfile',
-#            unique_together=set(),
+#        migrations.CreateModel(
+#            name='GeoJsonFile',
+#            fields=[
+#                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+#                ('index', models.IntegerField(default=0, editable=False)),
+#                ('geojson_file', models.FileField(max_length=512, upload_to=sqs.components.gisquery.models.geojson_file_path)),
+#                ('layer', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='geojson_files', to='sqs.layer')),
+#            ],
 #        ),
+        migrations.AlterUniqueTogether(
+            name='geojsonfile',
+            unique_together=set(),
+        ),
     ]
