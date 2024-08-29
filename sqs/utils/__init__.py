@@ -1,5 +1,6 @@
 from django.conf import settings
 import traceback
+import gc
 
 from sqs.decorators import traceback_exception_handler
 
@@ -17,6 +18,9 @@ SELECT = 'select'
 DATE_FMT = '%Y-%m-%d'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
 DATETIME_T_FMT = '%Y%m%dT%H%M%S'
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class HelperUtils():
@@ -58,3 +62,7 @@ class HelperUtils():
                 if question['layer']['layer_name'] not in layer_names:
                     layer_names.append(question['layer']['layer_name'])
         return layer_names
+
+    @classmethod 
+    def force_gc(self):
+        logger.info([gc.collect() for i in range(settings.GC_ITER_LOOP)])

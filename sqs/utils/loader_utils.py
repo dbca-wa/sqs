@@ -18,7 +18,7 @@ import gc
 
 from sqs.components.gisquery.models import Layer, GeoJsonFile
 from sqs.exceptions import LayerProviderException
-from sqs.utils import DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
+from sqs.utils import HelperUtils, DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
 
 import logging
 logger = logging.getLogger(__name__)
@@ -151,7 +151,7 @@ class LayerLoader():
             return attr_values
 
 
-        gc.collect()
+        HelperUtils.force_gc()
         layer = None
         if self.name in settings.KB_EXCLUDE_LAYERS:
             logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')

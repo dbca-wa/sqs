@@ -185,6 +185,7 @@ class DisturbanceLayerQueryHelper():
         def to_str(_list):
             return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
 
+        HelperUtils.force_gc()
         try:
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
@@ -218,36 +219,48 @@ class DisturbanceLayerQueryHelper():
                         logger.info('---------------------------------------------------------------------------------------------')
                         logger.info(f'{layer_name} - Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("masterlist_question")["question"][:25]}\' {answer_str} ...')
           
-                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
-                        layer_info, layer_gen = layer_provider.get_layer_generator()
-
                         time_retrieve_layer = time.time() - start_time_retrieve_layer
                         how = layer['how']
                         column_name = layer['column_name']
                         operator = layer['operator']
                         value = layer['value']
-                        layer_crs = layer_info['layer_crs']
-                        mpoly = self.add_buffer(layer, layer_crs)
 
                         operator_result = []
                         proponent_answer = []
                         assessor_answer = []
+                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
 
                         print_system_memory_stats(f'Ready to load layer {layer_name}')
-                        for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
-                            features_batch = features.get('features')
-                            #for feature in features:
-                            if features_batch:
-                                layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
-                                layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
-                                print_system_memory_stats(f'{idx}-{layer_name}')
+                        if settings.USE_LAYER_STREAMING:
+                            layer_info, layer_gen = layer_provider.get_layer_generator()
+                            mpoly = self.add_buffer(layer, layer_crs)
+                            mpoly = self.add_buffer(layer, layer_info['layer_crs'])
 
-                                overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
-                                op = DefaultOperator(layer, overlay_gdf, widget_type)
+                            for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
+                                features_batch = features.get('features')
+                                if features_batch:
+                                    layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
+                                    layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
+                                    print_system_memory_stats(f'{idx}-{layer_name}')
 
-                                operator_result  += op.operator_result()
-                                proponent_answer += op.proponent_answer()
-                                assessor_answer  += op.assessor_answer()
+                                    overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
+                                    op = DefaultOperator(layer, overlay_gdf, widget_type)
+
+                                    operator_result  += op.operator_result()
+                                    proponent_answer += op.proponent_answer()
+                                    assessor_answer  += op.assessor_answer()
+                        else:
+                            layer_info, layer_gdf = layer_provider.get_layer()
+                            print_system_memory_stats(f'{layer_name}')
+
+                            mpoly = self.add_buffer(layer, layer_info['layer_crs'])
+
+                            overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
+                            op = DefaultOperator(layer, overlay_gdf, widget_type)
+
+                            operator_result  += op.operator_result()
+                            proponent_answer += op.proponent_answer()
+                            assessor_answer  += op.assessor_answer()
 
                         operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
                         proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
@@ -296,7 +309,7 @@ class DisturbanceLayerQueryHelper():
 #        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
             #import ipdb; ipdb.set_trace()
 
-        gc.collect()
+        HelperUtils.force_gc()
         return question_group_res
 
 

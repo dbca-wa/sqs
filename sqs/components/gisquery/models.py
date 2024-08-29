@@ -180,17 +180,51 @@ class Layer(RevisionedMixin):
 #        return gdf
 
 
+#    @traceback_exception_handler
+#    def to_gdf(self, all_features=False):
+#        if settings.USE_LAYER_STREAMING:
+#            gdf = gpd.GeoDataFrame()
+#            for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
+#                features_batch = features.get('features')
+#                if features_batch:
+#                    gdf1 = gpd.GeoDataFrame.from_features(features_batch)
+#                    gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+#                    if not all_features:
+#                        # return the gdf with only the first batch of features
+#                        return gdf.set_crs(self.crs, inplace=True)
+#        else:
+#            if not Path(self.geojson_file.path).is_file():
+#                raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+#
+#            gdf = gpd.read_file(self.geojson_file.path)
+#            #gdf.set_crs(self.crs, inplace=True)
+#            #return gdf
+#
+#        return gdf.set_crs(self.crs, inplace=True)
+
     @traceback_exception_handler
     def to_gdf(self, all_features=False):
-        gdf = gpd.GeoDataFrame()
-        for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
-            features_batch = features.get('features')
-            if features_batch:
-                gdf1 = gpd.GeoDataFrame.from_features(features_batch)
-                gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
-                if not all_features:
-                    # return the gdf with only the first batch of features
-                    return gdf.set_crs(self.crs, inplace=True)
+        #path = "/home/jawaidm/Downloads/split2/"
+        #split_files = [name for name in os.listdir(path) if os.path.isfile(path+name) and name!=filename]
+
+        #Path(k.geojson_file.name).name
+        if settings.USE_LAYER_STREAMING:
+            gdf = gpd.GeoDataFrame()
+            for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
+                features_batch = features.get('features')
+                if features_batch:
+                    gdf1 = gpd.GeoDataFrame.from_features(features_batch)
+                    gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+                    if not all_features:
+                        # return the gdf with only the first batch of features
+                        return gdf.set_crs(self.crs, inplace=True)
+        else:
+            if not Path(self.geojson_file.path).is_file():
+                raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
+            gdf = gpd.read_file(self.geojson_file.path)
+            #gdf.set_crs(self.crs, inplace=True)
+            #return gdf
 
         return gdf.set_crs(self.crs, inplace=True)
 
