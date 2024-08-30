@@ -1,6 +1,7 @@
 from django.conf import settings
 import traceback
 import gc
+import time
 
 from sqs.decorators import traceback_exception_handler
 
@@ -63,6 +64,22 @@ class HelperUtils():
                     layer_names.append(question['layer']['layer_name'])
         return layer_names
 
+#    @classmethod 
+#    def force_gc(self, data=None):
+#        if not data:
+#            gc.collect()
+#        else:
+#            data = [data] if not isinstance(data, list) else data
+#            for df in data:
+#                del df
+ 
     @classmethod 
-    def force_gc(self):
-        logger.info([gc.collect() for i in range(settings.GC_ITER_LOOP)])
+    def force_gc(self, data=None):
+        del data
+        gc.collect()
+
+    @classmethod 
+    def log_elapsed_time(self, start_time, msg=''):
+        if settings.LOG_ELAPSED_TIME:
+            resp = f'Time Taken: {time.time() - start_time:.2f}s'
+            logger.info(msg + ': ' + resp if msg else resp)

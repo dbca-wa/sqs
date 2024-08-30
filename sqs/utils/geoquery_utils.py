@@ -54,55 +54,55 @@ class DisturbanceLayerQueryHelper():
         self.metrics = []
 
     def read_geojson(self, geojson):
-        """ geojson is the user specified polygon, used to intersect the layers """
+        """ geojson is the user specified shapefile/polygon, used to intersect the layers """
         try:
-            mpoly = gpd.read_file(json.dumps(geojson))
+            shapefile_gdf = gpd.read_file(json.dumps(geojson))
         except Exception as e:
             raise Exception(f'Error reading geojson file: {str(e)}')
 
-        return mpoly
+        return shapefile_gdf
 
-    def add_buffer(self, layer, layer_crs):
+    def get_shapefile_gdf(self, layer, layer_crs):
         '''
         1. Converts Polar Projection from EPSG:xxxx (eg. EPSG:4326) in deg to Cartesian Projection (in meters),
         add buffer (in meters) to the new projection, then reverts the buffered polygon to 
         the original projection
 
-        2. Converts to a mpoly to a common CRS (same as layer's CRS) --> to allow overlay
+        2. Converts user provided shapefile_gdf to a common CRS (same as layer's CRS) --> to allow overlay
 
         Input: buffer_size -- in meters
 
-        Returns the the original polygon, perimeter increased/decreased by the buffer size and converted to a common CRS
+        Returns the the original shapefile, perimeter increased/decreased by the buffer size and converted to a common CRS
         '''
 
-        mpoly_gdf = self.geojson
-        if layer_crs.lower() != mpoly_gdf.crs.srs.lower():
+        shapefile_gdf = self.geojson
+        if layer_crs.lower() != shapefile_gdf.crs.srs.lower():
             # need a common CRS before overlaying shapefile with layer
-            mpoly_gdf.to_crs(layer_crs, inplace=True)
+            shapefile_gdf.to_crs(layer_crs, inplace=True)
 
-        if 'POLYGON' not in str(mpoly_gdf):
-            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {mpoly_gdf}.')
+        if 'POLYGON' not in str(shapefile_gdf):
+            logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {shapefile_gdf}.')
 
         try:
             # if buffer specified in layer definition, increase the perimeter by the buffer amount. Otherwise, 
             # reduce the perimeter by settings.DEFAULT_BUFFER
             buffer_size = layer['buffer'] if layer['buffer'] else settings.DEFAULT_BUFFER
             if buffer_size and buffer_size != 0:
-                crs_orig =  mpoly_gdf.crs
+                crs_orig =  shapefile_gdf.crs
 
                 # convert to new projection so that buffer can be added in meters
-                mpoly_cart_gdf = mpoly_gdf.to_crs(settings.CRS_CARTESIAN)
-                mpoly_cart_gdf['geometry'] = mpoly_cart_gdf['geometry'].buffer(buffer_size)
+                shapefile_cart_gdf = shapefile_gdf.to_crs(settings.CRS_CARTESIAN)
+                shapefile_cart_gdf['geometry'] = shapefile_cart_gdf['geometry'].buffer(buffer_size)
 
                 # revert to original projection
-                mpoly_buffer_gdf = mpoly_cart_gdf.to_crs(crs_orig)
+                shapefile_buffer_gdf = shapefile_cart_gdf.to_crs(crs_orig)
 
-                return mpoly_buffer_gdf
+                return shapefile_buffer_gdf
             
         except Exception as e:
             logger.error(f'Error adding buffer {buffer_size} to polygon.\n{e}')
             
-        return mpoly_gdf
+        return shapefile_gdf
 
     def get_attributes(self, layer_gdf):
         cols = layer_gdf.columns.drop(['id','md5_rowhash', 'geometry'])
@@ -147,19 +147,19 @@ class DisturbanceLayerQueryHelper():
         )
         return self.metrics
 
-    def get_overlay_gdf(self, layer_gdf, mpoly, how, column_name):
+    def get_overlay_gdf(self, layer_gdf, shapefile_gdf, how, column_name):
         ''' how = ['intersection','symmetric_difference','difference']
         '''
 
-        # how='Overlapping' - get layer features 'intersected by' mpoly
-        overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
+        # how='Overlapping' - get layer features 'intersected by' shapefile_gdf
+        overlay_gdf = layer_gdf.overlay(shapefile_gdf, how='intersection', keep_geom_type=False)
         if how=='Outside':
-            # all layer features completely outside mpoly
+            # all layer features completely outside shapefile_gdf
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
 
         elif how=='Inside':
-            # all layer features completely within/inside mpoly
-            diff_gdf = layer_gdf.overlay(mpoly, how='difference', keep_geom_type=False)
+            # all layer features completely within/inside shapefile_gdf
+            diff_gdf = layer_gdf.overlay(shapefile_gdf, how='difference', keep_geom_type=False)
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( diff_gdf[column_name].unique() )]
 
         if column_name not in overlay_gdf.columns:
@@ -185,7 +185,7 @@ class DisturbanceLayerQueryHelper():
         def to_str(_list):
             return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
 
-        HelperUtils.force_gc()
+        #HelperUtils.force_gc()
         try:
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
@@ -225,194 +225,68 @@ class DisturbanceLayerQueryHelper():
                         operator = layer['operator']
                         value = layer['value']
 
-                        operator_result = []
-                        proponent_answer = []
-                        assessor_answer = []
-                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
+#                        operator_result = []
+#                        proponent_answer = []
+#                        assessor_answer = []
+#                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
+#
+#                        if settings.USE_LAYER_STREAMING:
+#                            layer_info, layer_gen = layer_provider.get_layer_generator()
+#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
+#
+#                            for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
+#                                features_batch = features.get('features')
+#                                if features_batch:
+#                                    layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
+#                                    layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
+#                                    print_system_memory_stats(f'{idx}-{layer_name}')
+#
+#                                    overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+#                                    op = DefaultOperator(layer, overlay_gdf, widget_type)
+#
+#                                    operator_result  += op.operator_result()
+#                                    proponent_answer += op.proponent_answer()
+#                                    assessor_answer  += op.assessor_answer()
+#                        if False: #settings.USE_LAYER_SPLIT_FILES:
+#                            pass
+#                            layer_info, layer_files = layer_provider.get_by_parts()
+#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
+#
+#                            for idx, geojson_file in enumerate(layer_files):
+#                                pass
+#
+#                        else:
+#                            layer_info, layer_gdf = layer_provider.get_layer()
+#                            mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
+#                            print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage}')
+#
+#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
+#
+#                            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+#                            op = DefaultOperator(layer, overlay_gdf, widget_type)
+#
+#                            operator_result  += op.operator_result()
+#                            proponent_answer += op.proponent_answer()
+#                            assessor_answer  += op.assessor_answer()
+#
+#                        operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
+#                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
+#                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(assessor_answer))
 
                         print_system_memory_stats(f'Ready to load layer {layer_name}')
-                        if settings.USE_LAYER_STREAMING:
-                            layer_info, layer_gen = layer_provider.get_layer_generator()
-                            mpoly = self.add_buffer(layer, layer_crs)
-                            mpoly = self.add_buffer(layer, layer_info['layer_crs'])
-
-                            for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
-                                features_batch = features.get('features')
-                                if features_batch:
-                                    layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
-                                    layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
-                                    print_system_memory_stats(f'{idx}-{layer_name}')
-
-                                    overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
-                                    op = DefaultOperator(layer, overlay_gdf, widget_type)
-
-                                    operator_result  += op.operator_result()
-                                    proponent_answer += op.proponent_answer()
-                                    assessor_answer  += op.assessor_answer()
-                        else:
-                            layer_info, layer_gdf = layer_provider.get_layer()
-                            print_system_memory_stats(f'{layer_name}')
-
-                            mpoly = self.add_buffer(layer, layer_info['layer_crs'])
-
-                            overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
-                            op = DefaultOperator(layer, overlay_gdf, widget_type)
-
-                            operator_result  += op.operator_result()
-                            proponent_answer += op.proponent_answer()
-                            assessor_answer  += op.assessor_answer()
-
-                        operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
-                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
-                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(assessor_answer))
-
-                        logger.info(f'Operator Result: {operator_result}'[:200])
-                        condition = f'{column_name} -- {operator}'
-                        if operator != 'IsNotNull':
-                            condition += f' -- {value}'
-
-                        res = dict(
-                                visible_to_proponent=layer['visible_to_proponent'],
-                                layer_details = dict(**layer_info,
-                                    column_name=column_name,
-                                    sqs_timestamp=today.strftime(DATETIME_FMT),
-                                    error_msg = error_msg,
-                                ),
-                                condition=[how, condition],
-                                operator_response=operator_result,
-                                proponent_answer=proponent_answer,
-                                assessor_answer=assessor_answer,
-                            )
-                        layer_res.append(res)
-
-                        self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
-                        logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
-
-                    else:
-                        logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question["masterlist_question"]["question"]} - {layer_name}')
-                        expired = True
-
-                question_group_res.append(
-                    dict(
-                        question=cddp_question['masterlist_question']['question'],
-                        answer=cddp_question['answer_mlq'],
-                        other_data=cddp_question['other_data'],
-                        layers=layer_res,
-                    )
-                )
-
-
-        except Exception as e: 
-            logger.error(e)
-            #self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=e)
-
-#        if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
-            #import ipdb; ipdb.set_trace()
-
-        HelperUtils.force_gc()
-        return question_group_res
-
-
-    def _spatial_join_gbq(self, question, widget_type):
-        '''
-        Process new Question (grouping by like-questions) and results stored in cache 
-
-        NOTE: All questions for the given layer 'layer_name' will be processed by 'spatial_join()' and results stored in cache. 
-              This will save time reloading and querying layers for questions from the same layer_name. 
-              It is CPU cost effective to query all questions for the same layer now, and cache results for 
-              subsequent potential question/answer queries.
-        '''
-
-        try:
-            error_msg = ''
-            today = datetime.now(pytz.timezone(settings.TIME_ZONE))
-            layer_info = {}
-            expired = False
-            layer_res = []
-            question_group_res = []
-
-            grouped_questions = self.get_grouped_questions(question)
-            if len(grouped_questions)==0:
-                return question_group_res
-
-#            if grouped_questions['questions'][0]['masterlist_question']['question'] == '2.0 What is the land tenure or classification?':
-#                import ipdb; ipdb.set_trace()
-
-            for cddp_question in grouped_questions['questions']:
-                start_time = time.time()
-
-#                question_expiry = datetime.strptime(cddp_question['expiry'], DATE_FMT).date() if cddp_question['expiry'] else None
-#                if question_expiry is None or question_expiry >= today.date():
-                layer_res = []
-                for layer in cddp_question['layers']:
-                 
-                    layer_name = layer['layer']['layer_name']
-                    layer_url = layer['layer']['layer_url']
-
-                    layer_question_expiry = datetime.strptime(layer['expiry'], DATE_FMT).date() if layer['expiry'] else None
-                    if layer_question_expiry is None or layer_question_expiry >= today.date():
-
-                        start_time_retrieve_layer = time.time()
-
-                        answer_str = f'A: \'{cddp_question.get("answer_mlq")[:25]}\'' if cddp_question.get('answer_mlq') else ''
-                        logger.info('---------------------------------------------------------------------------------------------')
-                        logger.info(f'Proposal ID {self.proposal["id"]}: Processing Question \'{cddp_question.get("masterlist_question")["question"][:25]}\' {answer_str} ...')
-          
-    #                    if layer_name != layer_info.get('layer_name'):
-    #                        # layer name not available in memory - retrieve/re-retrieve
-    #                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
-    #                        layer_info, layer_gdf = layer_provider.get_layer()
-    #                    else:
-    #                        logger.info(f'Layer {layer_name} already in memory ...')
                         layer_provider = DbLayerProvider(layer_name, url=layer_url)
                         layer_info, layer_gdf = layer_provider.get_layer()
-                        print_system_memory_stats()
 
-                        time_retrieve_layer = time.time() - start_time_retrieve_layer
+                        mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
+                        print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
 
-                        how = layer['how']
-                        column_name = layer['column_name']
-                        operator = layer['operator']
-                        value = layer['value']
+                        shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
+                        overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
 
-            #            if cddp_question['question']=='1.0 Proposal title':
-            #                pass
-
-                        how = self.overlay_how(how) # ['interesection', 'difference']
-
-                        mpoly = self.add_buffer(cddp_question, layer)
-                        if layer_gdf.crs.srs.lower() != mpoly.crs.srs.lower():
-                            mpoly.to_crs(layer_gdf.crs.srs, inplace=True)
-
-#                        # For overlay function, how='symmetric_difference' is the opposite of 'intersection'. To get 'symmetric_difference' we will
-#                        # compute 'intersection' and filter the intersected features from the layer_gdf.
-#                        # That is, for both cases of 'intersection' or 'symmetrical_difference' - we need to calc 'intersection'
-#                        overlay_gdf = layer_gdf.overlay(mpoly, how='intersection', keep_geom_type=False)
-#
-#    #                    # filter layer intersections with very low area/boundary_length ratios
-#    #                    overlay_cart_gdf = overlay_gdf.to_crs(settings.CRS_CARTESIAN)
-#    #                    overlay_cart_gdf = overlay_cart_gdf[[(overlay_cart_gdf.area/overlay_cart_gdf.length > settings.GEOM_AREA_LENGTH_FILTER) & ((overlay_cart_gdf.area/overlay_cart_gdf.length).isna())]]
-#    #                    overlay_gdf = overlay_cart_gdf.to_crs(layer_gdf.crs.srs)
-#
-#                        if column_name not in overlay_gdf.columns:
-#                            _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
-#                            error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
-#                            logger.error(error_msg)
-#
-#                        if how == 'intersection':
-#                            # already computed above
-#                            pass
-#                        else:
-#                            # equivalent to 'symmetrical difference', but re-introducing very low area/boundary_length ratios, features which would otherwise be omitted
-#                            overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
-
-                        overlay_gdf = self.get_overlay_gdf(layer_gdf, mpoly, how, column_name)
-
-                        # operators ['IsNull', 'IsNotNull', 'GreaterThan', 'LessThan', 'Equals']
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
-                        operator_result  = op.operator_result()
-                        proponent_answer = op.proponent_answer()
-                        assessor_answer  = op.assessor_answer()
+                        operator_result  = op.answer_prefix('proponent_items') + unique_list(op.operator_result())
+                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(op.proponent_answer()))
+                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(op.assessor_answer()))
 
                         logger.info(f'Operator Result: {operator_result}'[:200])
                         condition = f'{column_name} -- {operator}'
@@ -427,7 +301,6 @@ class DisturbanceLayerQueryHelper():
                                     error_msg = error_msg,
                                 ),
                                 condition=[how, condition],
-                                #operator_response=operator_result if isinstance(operator_result, list) else [operator_result],
                                 operator_response=operator_result,
                                 proponent_answer=proponent_answer,
                                 assessor_answer=assessor_answer,
@@ -437,6 +310,7 @@ class DisturbanceLayerQueryHelper():
                         self.set_metrics(cddp_question, layer_provider, expired, condition, time_retrieve_layer, time.time() - start_time, error=None)
                         logger.info(f'Time Taken: {round(time.time() - start_time, 3)} secs')
 
+                        HelperUtils.force_gc([layer_gdf, overlay_gdf, shapefile_gdf])
                     else:
                         logger.warn(f'Expired {layer_question_expiry}: Ignoring question {cddp_question["masterlist_question"]["question"]} - {layer_name}')
                         expired = True

@@ -57,10 +57,13 @@ DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in m
 MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', None) # MB
 GEOJSON_BATCH_SIZE = env('GEOJSON_BATCH_SIZE', 1000)
 SHOW_SYS_MEM_STATS = env('SHOW_SYS_MEM_STATS', False)
-USE_LAYER_STREAMING = False
+USE_LAYER_STREAMING = env('USE_LAYER_STREAMING', False)
+USE_LAYER_SPLIT_FILES = env('USE_LAYER_SPLIT_FILES', True)
+MAX_GEOJSPLIT_SIZE = env('MAX_GEOJSPLIT_SIZE', 75) # MB
 GC_ITER_LOOP = env('GC_ITER_LOOP', 5)
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
+LOG_ELAPSED_TIME = env('LOG_ELAPSED_TIME', False)
 
 KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
 KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
@@ -117,6 +120,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_gis',
     'rest_framework_swagger',
+    #'silk',
     'appmonitor_client',
 ]
 
@@ -150,6 +154,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    #'silk.middleware.SilkyMiddleware',
     'dbca_utils.middleware.SSOLoginMiddleware',
     #'sqs.middleware.CacheControlMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -232,6 +237,8 @@ EMAIL_FROM = DEFAULT_FROM_EMAIL
 NOTIFICATION_EMAIL=env('NOTIFICATION_EMAIL')
 CRON_NOTIFICATION_EMAIL = env('CRON_NOTIFICATION_EMAIL', NOTIFICATION_EMAIL).lower()
 EMAIL_HOST = env('EMAIL_HOST', 'smtp.lan.fyi')
+
+#SILKY_PYTHON_PROFILER = True
 
 # Database
 DATABASES = {

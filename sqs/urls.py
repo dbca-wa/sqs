@@ -56,6 +56,8 @@ urlpatterns = [
     re_path(r'schema/', schema_view),
 ]
 
+#urlpatterns += [re_path('silk/', include('silk.urls', namespace='silk'))]
+
 #if settings.SHOW_DEBUG_TOOLBAR:
 #    import debug_toolbar
 #    urlpatterns = [

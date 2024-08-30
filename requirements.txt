@@ -34,6 +34,7 @@ json_checker==2.0.0
 unicodecsv==0.14.1
 psutil==6.0.0
 geojsplit==0.1.2
+#django-silk==5.2.0
 
 # Needed for shell_plus crash issue
 jedi==0.19.1
