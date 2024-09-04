@@ -225,54 +225,6 @@ class DisturbanceLayerQueryHelper():
                         operator = layer['operator']
                         value = layer['value']
 
-#                        operator_result = []
-#                        proponent_answer = []
-#                        assessor_answer = []
-#                        layer_provider = DbLayerProvider(layer_name, url=layer_url)
-#
-#                        if settings.USE_LAYER_STREAMING:
-#                            layer_info, layer_gen = layer_provider.get_layer_generator()
-#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
-#
-#                            for idx, features in enumerate(layer_gen.stream(batch=settings.GEOJSON_BATCH_SIZE)):
-#                                features_batch = features.get('features')
-#                                if features_batch:
-#                                    layer_gdf = gpd.GeoDataFrame.from_features(features_batch)
-#                                    layer_gdf.set_crs(layer_info['layer_crs'], inplace=True)
-#                                    print_system_memory_stats(f'{idx}-{layer_name}')
-#
-#                                    overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
-#                                    op = DefaultOperator(layer, overlay_gdf, widget_type)
-#
-#                                    operator_result  += op.operator_result()
-#                                    proponent_answer += op.proponent_answer()
-#                                    assessor_answer  += op.assessor_answer()
-#                        if False: #settings.USE_LAYER_SPLIT_FILES:
-#                            pass
-#                            layer_info, layer_files = layer_provider.get_by_parts()
-#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
-#
-#                            for idx, geojson_file in enumerate(layer_files):
-#                                pass
-#
-#                        else:
-#                            layer_info, layer_gdf = layer_provider.get_layer()
-#                            mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
-#                            print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage}')
-#
-#                            shapefile_gdf = self.add_buffer(layer, layer_info['layer_crs'])
-#
-#                            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
-#                            op = DefaultOperator(layer, overlay_gdf, widget_type)
-#
-#                            operator_result  += op.operator_result()
-#                            proponent_answer += op.proponent_answer()
-#                            assessor_answer  += op.assessor_answer()
-#
-#                        operator_result  = op.answer_prefix('proponent_items') + unique_list(operator_result)
-#                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(proponent_answer))
-#                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(assessor_answer))
-
                         print_system_memory_stats(f'Ready to load layer {layer_name}')
                         layer_provider = DbLayerProvider(layer_name, url=layer_url)
                         layer_info, layer_gdf = layer_provider.get_layer()
@@ -323,7 +275,6 @@ class DisturbanceLayerQueryHelper():
                         layers=layer_res,
                     )
                 )
-
 
         except Exception as e: 
             logger.error(e)
@@ -742,3 +693,116 @@ class PointQueryHelper():
 
         return res
 
+
+#from rest_framework import serializers
+#class QuestionLayerMap():
+#
+#    def __init__(self):
+#        self.questions = []
+#
+#    def add(self, question_layer):
+#        self.questions.append(question_layer)
+#
+#    def __repr__(self):
+#        import ipdb; ipdb.set_trace()
+#        layers = ''.join([question.layer.layer_details.layer_name for question in self.question])
+#        return f'(Q): {self.question} - (A): {self.answer} ({layers})'
+#
+#    def serialize(self):
+#        return f'{self.question_layer}'
+#
+#
+#class QuestionLayer():
+#
+#    def __init__(self, question, answer, other_data):
+#        self.question = question
+#        self.answer = answer
+#        self.other_data = other_data
+#        self.layers = []
+#
+#    def add(self, layer_result):
+#        self.layers.append(layer_result)
+#
+#    def __repr__(self):
+#        layers = ''.join([layer.layer_details.layer_name for layer in self.layers])
+#        return f'(Q): {self.question} - (A): {self.answer} ({layers})'
+#
+#    def serialize(self):
+#        return f'{self.layer_details}'
+#
+#
+#class LayerResult():
+#
+#    def __init__(self, visible_to_proponent, layer_details, condition, operator_response, proponent_answer, assessor_answer):
+#        self.visible_to_proponent = visible_to_proponent
+#        self.layer_details = layer_details
+#        self.condition = condition
+#        self.operator_response = operator_response
+#        self.proponent_answer = proponent_answer
+#        self.assessor_answer = assessor_answer
+#
+#    def __repr__(self):
+#        return f'{self.layer_details}'
+# 
+#    def serialize(self):
+#        return f'{self.layer_details}'
+#
+#
+#class LayerConditionSerializer(serializers.Serializer):
+#    intersection_operator = serializers.CharField(max_length=100)
+#    attr_name = serializers.CharField(max_length=100)
+#    operator = serializers.CharField(max_length=20)
+#    value = serializers.CharField(max_length=100)
+#
+#
+#class LayerCondition():
+#
+#    def __init__(self, intersection_operator, attr_name, operator, value):
+#        self.intersection_operator = intersection_operator
+#        self.attr_name = attr_name
+#        self.operator = operator
+#        self.value = value
+#
+#    def __repr__(self):
+#        _str = f'{self.intersection_operator}, {self.attr_name} -- {self.operator}'
+#        if self.value:
+#            _str = f'{_str} -- {self.value}' 
+#        return _str
+# 
+#    def serialize(self):
+#        return f'{self.intersection_operator}, version {self.attr_name}'
+#
+#
+#class LayerDetail():
+#
+#    def __init__(self, layer_name, layer_version, layer_crs, layer_created_date, layer_modified_date, column_name, sqs_timestamp, error_msg):
+#        self.layer_name = layer_name
+#        self.layer_version = layer_version
+#        self.layer_crs = layer_crs
+#        self.layer_created_date = layer_created_date
+#        self.layer_dified_date = layer_modified_date
+#        self.column_name = column_name
+#        self.sqs_timestamp = sqs_timestamp
+#        self.error_msg = error_msg
+#
+#    def __repr__(self):
+#        return f'{self.layer_name} (v{self.layer_version})'
+# 
+#    def serialize(self):
+#        return f'{self.layer_name}, version {self.layer_version}'
+
+
+''' 
+from sqs.utils.geoquery_utils import LayerDetail, LayerCondition, LayerResult, QuestionLayer, QuestionLayerMap                                                                                             
+
+condition1 = LayerCondition(intersection_operator='Overlapping', attr_name='CPT_DBCA_REGIONS', operator='IsNotNull', value=None)
+
+layer_result1 = LayerResult(visible_to_proponent=True,  layer_details=layer_details1, condition=condition1, operator_response=['P1:', 'National Park'], proponent_answer=['P1:', 'National Park'], assessor_answer=['A1:', 'National Park'])
+
+question_result = QuestionLayer(question='1.0 Proposal title', answer=None, other_data=[{'show_add_info_section_prop': True}])
+
+question_result.add(layer_result1)
+
+questions = QuestionLayerMap()
+questions.add(question_layer)
+'''
