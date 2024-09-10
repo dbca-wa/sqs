@@ -65,6 +65,7 @@ GC_ITER_LOOP = env('GC_ITER_LOOP', 5)
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
 LOG_ELAPSED_TIME = env('LOG_ELAPSED_TIME', False)
+LOG_REQUEST_STATS = env('LOG_REQUEST_STATS', False)
 
 KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
 KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
@@ -318,6 +319,13 @@ LOGGING = {
             'formatter': 'verbose',
             'maxBytes': 5242880
         },
+        'request_stats': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'requests.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5242880
+        },
 
     },
     'loggers': {
@@ -342,6 +350,10 @@ LOGGING = {
         'sys_stats': {
             'handlers': ['debug'],
             'level': 'DEBUG'
+        },
+        'request_stats': {
+            'handlers': ['request_stats'],
+            'level': 'INFO'
         },
 
     }

@@ -22,6 +22,7 @@ DATETIME_T_FMT = '%Y%m%dT%H%M%S'
 
 import logging
 logger = logging.getLogger(__name__)
+logger_stats = logging.getLogger('request_stats')
 
 
 class HelperUtils():
@@ -83,3 +84,8 @@ class HelperUtils():
         if settings.LOG_ELAPSED_TIME:
             resp = f'Time Taken: {time.time() - start_time:.2f}s'
             logger.info(msg + ': ' + resp if msg else resp)
+
+    @classmethod 
+    def log_request(self, msg=''):
+        if settings.LOG_REQUEST_STATS:
+            logger_stats.info(msg)
