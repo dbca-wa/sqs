@@ -18,7 +18,7 @@ import pytz
 import traceback
 import inspect
 
-from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task, RequestTypeEnum
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import DbLayerProvider
@@ -87,7 +87,8 @@ class DisturbanceLayerView(View):
 
             # check if a previous request exists with a more recent timestamp
             # datetime.strptime('2023-07-04T10:53:17', '%Y-%m-%dT%H:%M:%S')
-            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='FULL', system='DAS')
+            conditions = [RequestTypeEnum.FULL, RequestTypeEnum.PARTIAL, RequestTypeEnum.REFRESH_PARTIAL, RequestTypeEnum.REFRESH_SINGLE]
+            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type__in=conditions, system='DAS')
             if qs_cur.exists() and current_ts is not None:
                 ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
                 last_query_date = normalise_datetime(qs_cur.latest('when').when)
@@ -197,6 +198,8 @@ class DisturbanceLayerQueueView(View):
                     #'data': data,
                     'request_log': request_log,
                     'requester': requester,
+                    'request_type': request_type,
+                    'priority': Task.PRIORITY_HIGH if request_type in [RequestTypeEnum.TEST_SINGLE, RequestTypeEnum.TEST_GROUP] else Task.PRIORITY_HIGH,
                 },
             )
 

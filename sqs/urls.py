@@ -58,13 +58,9 @@ urlpatterns = [
 
 #urlpatterns += [re_path('silk/', include('silk.urls', namespace='silk'))]
 
-if settings.SHOW_DEBUG_TOOLBAR:
-    from debug_toolbar.toolbar import debug_toolbar_urls
-
+#if settings.SHOW_DEBUG_TOOLBAR:
+#    from debug_toolbar.toolbar import debug_toolbar_urls
+#
 #    urlpatterns = [
-#        # ... the rest of your URLconf goes here ...
+#        *urlpatterns,
 #    ] + debug_toolbar_urls()
-
-    urlpatterns = [
-        *urlpatterns,
-    ] + debug_toolbar_urls()

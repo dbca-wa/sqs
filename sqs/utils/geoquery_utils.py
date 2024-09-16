@@ -75,6 +75,7 @@ class DisturbanceLayerQueryHelper():
         Returns the the original shapefile, perimeter increased/decreased by the buffer size and converted to a common CRS
         '''
 
+        #shapefile_gdf = self.geojson[['geometry']] if 'geometry' in self.geojson else self.geojson
         shapefile_gdf = self.geojson
         if layer_crs.lower() != shapefile_gdf.crs.srs.lower():
             # need a common CRS before overlaying shapefile with layer
@@ -152,14 +153,14 @@ class DisturbanceLayerQueryHelper():
         '''
 
         # how='Overlapping' - get layer features 'intersected by' shapefile_gdf
-        overlay_gdf = layer_gdf.overlay(shapefile_gdf, how='intersection', keep_geom_type=False)
+        overlay_gdf = layer_gdf.overlay(shapefile_gdf[['geometry']], how='intersection', keep_geom_type=False)
         if how=='Outside':
             # all layer features completely outside shapefile_gdf
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
 
         elif how=='Inside':
             # all layer features completely within/inside shapefile_gdf
-            diff_gdf = layer_gdf.overlay(shapefile_gdf, how='difference', keep_geom_type=False)
+            diff_gdf = layer_gdf.overlay(shapefile_gdf[['geometry']], how='difference', keep_geom_type=False)
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( diff_gdf[column_name].unique() )]
 
         if column_name not in overlay_gdf.columns:
@@ -185,7 +186,6 @@ class DisturbanceLayerQueryHelper():
         def to_str(_list):
             return '\n'.join(_list).replace(',',', ').replace('\\n', '\n')
 
-        #HelperUtils.force_gc()
         try:
             error_msg = ''
             today = datetime.now(pytz.timezone(settings.TIME_ZONE))
@@ -609,8 +609,10 @@ class DisturbanceLayerQueryHelper():
 
                 proponent_resp_agg = proponent_resp_agg.strip('\n')
                 assessor_resp_agg = assessor_resp_agg.strip('\n')
+
+                unique_layers = list(set([i['layer_name'] for i in layers_agg]))
                 details_agg = dict(
-                        layer_name=', '.join([i['layer_name'] for i in layers_agg]),
+                        layer_name=', '.join(unique_layers),
                         layer_version=details['layer_version'] if details else '',
                         layer_created_date=details['layer_created_date'] if details else '',
                         layer_modified_date=details['layer_modified_date'] if details else '',
@@ -704,7 +706,6 @@ class PointQueryHelper():
 #        self.questions.append(question_layer)
 #
 #    def __repr__(self):
-#        import ipdb; ipdb.set_trace()
 #        layers = ''.join([question.layer.layer_details.layer_name for question in self.question])
 #        return f'(Q): {self.question} - (A): {self.answer} ({layers})'
 #

@@ -327,18 +327,30 @@ class Layer(RevisionedMixin):
             raise
 
         return version_obj 
-            
-class LayerRequestLog(models.Model):
+
+class RequestTypeEnum():
     FULL = 'FULL'
     PARTIAL = 'PARTIAL'
     SINGLE = 'SINGLE'
+    REFRESH_PARTIAL = 'REFRESH_PARTIAL'
+    REFRESH_SINGLE = 'REFRESH_SINGLE'
+    TEST_GROUP = 'TEST_GROUP'
+    TEST_SINGLE = 'TEST_SINGLE'
     REQUEST_TYPE_CHOICES = (
         (FULL, 'FULL'),
         (PARTIAL, 'PARTIAL'),
         (SINGLE, 'SINGLE'),
+        (REFRESH_PARTIAL, 'REFRESH_PARTIAL'),
+        (REFRESH_SINGLE, 'REFRESH_SINGLE'),
+        (TEST_GROUP, 'TEST_GROUP'),
+        (TEST_SINGLE, 'TEST_SINGLE'),
     )
 
-    request_type = models.CharField(max_length=40, choices=REQUEST_TYPE_CHOICES, default=REQUEST_TYPE_CHOICES[0][0])
+           
+class LayerRequestLog(models.Model):
+
+    #request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES, default=RequestTypeEnum.REQUEST_TYPE_CHOICES[0][0])
+    request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES)
     system = models.CharField('Application name', max_length=64)
     app_id = models.SmallIntegerField('Application ID')
     data = JSONField('Request query from external system')
@@ -356,7 +368,7 @@ class LayerRequestLog(models.Model):
     def request_details(self, system=None, app_id=None, request_type='FULL', show_layers=False):
         '''
         Get history of layers requested from external systems
-        request_type: FULL | PARTIAL | SINGLE
+        request_type: FULL | REFRESH | PARTIAL | SINGLE
         '''
 
         if system is None and app_id is None:
@@ -471,6 +483,7 @@ class Task(RevisionedMixin):
     request_log = models.OneToOneField(LayerRequestLog, on_delete=models.CASCADE, related_name='request_log', null=True, blank=True)
     created     = models.DateTimeField(default=timezone.now, editable=False) # jm: needed for ordering queue
     retries     = models.PositiveSmallIntegerField(default=0)
+    request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES)
 
     objects = models.Manager()
     queued_jobs = ActiveQueueManager()
@@ -479,7 +492,7 @@ class Task(RevisionedMixin):
 
     class Meta:
         app_label = 'sqs'
-        #ordering = ('created_date',)
+        ordering = ('priority', '-created')
 
     def __str__(self):
         return f'{self.id} {self.system}_{self.app_id}'

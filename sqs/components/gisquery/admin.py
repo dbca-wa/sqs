@@ -43,8 +43,8 @@ class LayerRequestLogAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['id', 'system', 'app_id', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api', 'created']
-    list_filter = ["status", "priority", "system"]
+    list_display = ['id', 'system', 'app_id', 'request_type', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api', 'created']
+    list_filter = ["status", "priority", "system", 'request_type']
     search_fields = ['description', 'script', 'status', 'priority']
     readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'created_date') #, 'data')
     exclude = ['data', 'request_log']
