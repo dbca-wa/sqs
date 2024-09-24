@@ -1,17 +1,17 @@
 # Prepare the base environment.
-FROM ubuntu:24.04 as builder_base_sqs
+FROM ubuntu:24.04 AS builder_base_sqs
 MAINTAINER asi@dbca.wa.gov.au
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBUG=True
 ENV TZ=Australia/Perth
 ENV EMAIL_HOST="smtp.corporateict.domain"
 ENV DEFAULT_FROM_EMAIL='no-reply@dbca.wa.gov.au'
-ENV NOTIFICATION_EMAIL='brendan.blackford@dbca.wa.gov.au'
-ENV NON_PROD_EMAIL='brendan.blackford@dbca.wa.gov.au'
+ENV NOTIFICATION_EMAIL='jawaid.mushtaq@dbca.wa.gov.au'
+ENV NON_PROD_EMAIL='jawaid.mushtaq@dbca.wa.gov.au'
 ENV PRODUCTION_EMAIL=False
 ENV EMAIL_INSTANCE='DEV'
 ENV SECRET_KEY="ThisisNotRealKey"
-ENV SITE_PREFIX='lals-dev'
+ENV SITE_PREFIX='sqs-dev'
 ENV SITE_DOMAIN='dbca.wa.gov.au'
 ENV OSCAR_SHOP_NAME='Parks & Wildlife'
 ENV BPAY_ALLOWED=False

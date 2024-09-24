@@ -61,7 +61,7 @@ class SchemaSearch():
             except:
                 pass
 
-        return res
+        return res if res else None
 
     def get_flat_dict(self):
         """

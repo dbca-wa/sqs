@@ -8,6 +8,7 @@ from django.contrib.postgres.aggregates.general import ArrayAgg
 from django.db.models import Count
 from django.utils import timezone
 import pytz
+import gc
 
 from reversion import revisions
 from reversion.models import Version
@@ -18,6 +19,7 @@ import os
 from pathlib import Path
 
 from datetime import datetime, timedelta
+import time
 
 from geojsplit import geojsplit
 from sqs.utils import HelperUtils, DATETIME_FMT
@@ -156,7 +158,7 @@ class Layer(RevisionedMixin):
     @property
     def geojson_file(self):
         ''' returns the first file in the set of files for the given layer '''
-        _file = self.geojson_files.first()
+        _file = self.geojson_files.latest('id')
         return _file.geojson_file if _file and os.path.isfile(_file.geojson_file.path) else None
 
     @property
@@ -180,20 +182,101 @@ class Layer(RevisionedMixin):
 #        return gdf
 
 
+#    @traceback_exception_handler
+#    def __to_gdf(self, all_features=False):
+#        if settings.USE_LAYER_STREAMING:
+#            gdf = gpd.GeoDataFrame()
+#            for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
+#                features_batch = features.get('features')
+#                if features_batch:
+#                    gdf1 = gpd.GeoDataFrame.from_features(features_batch)
+#                    gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+#                    if not all_features:
+#                        # return the gdf with only the first batch of features
+#                        return gdf.set_crs(self.crs, inplace=True)
+#        else:
+#            if not Path(self.geojson_file.path).is_file():
+#                raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+#
+#            gdf = gpd.read_file(self.geojson_file.path)
+#            #gdf.set_crs(self.crs, inplace=True)
+#            #return gdf
+#
+#        return gdf.set_crs(self.crs, inplace=True)
+
     @traceback_exception_handler
-    def to_gdf(self, all_features=False):
+    def to_gdf_streamed(self, all_features=False):
+        start = time.time()
+        ''' read gdf from geojson file streamed-by-parts '''
+        if not Path(self.geojson_file.path).is_file():
+            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
         gdf = gpd.GeoDataFrame()
-        for features in self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE):
+        for idx, features in enumerate(self.geojson_generator().stream(batch=settings.GEOJSON_BATCH_SIZE)):
             features_batch = features.get('features')
             if features_batch:
                 gdf1 = gpd.GeoDataFrame.from_features(features_batch)
                 gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+                HelperUtils.force_gc(gdf1)
+                logger.info(f'{idx} - {self.name}')
                 if not all_features:
                     # return the gdf with only the first batch of features
-                    return gdf.set_crs(self.crs, inplace=True)
+                    gdf.set_crs(self.crs, inplace=True, allow_override=True)
+                    return gdf
 
-        return gdf.set_crs(self.crs, inplace=True)
+        gdf.set_crs(self.crs, inplace=True, allow_override=True)
+        HelperUtils.log_elapsed_time(start, 'to_gdf_streamed()')
+        return gdf
 
+    @traceback_exception_handler
+    def to_gdf_split(self, all_features=False):
+        start = time.time()
+        ''' read gdf from existing split geojson files. Read from orig geojson file if split files do not exist '''
+        if not Path(self.geojson_file.path).is_file():
+            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
+        path = '/'.join(self.geojson_file.name.split('/')[:-1])
+        filename = self.geojson_file.name.split('/')[-1]
+        split_files = [name for name in os.listdir(path) if os.path.isfile(path + os.sep + name) and name!=filename]
+        if not split_files:
+            # use the original (unsplit) file
+            split_files = [filename]
+
+        split_files.sort()
+        gdf = gpd.GeoDataFrame()
+        for idx, split_file in enumerate(split_files):
+            gdf1 = gpd.read_file(path + os.sep + split_file)
+            gdf = gpd.GeoDataFrame( pd.concat( [gdf, gdf1], ignore_index=True) )
+            HelperUtils.force_gc(gdf1)
+            logger.info(f'{idx} - {split_file}')
+            if not all_features:
+                # return the gdf with only the first batch of features (from first split file)
+                gdf.set_crs(self.crs, inplace=True, allow_override=True)
+                return gdf
+
+        gdf.set_crs(self.crs, inplace=True, allow_override=True)
+        HelperUtils.log_elapsed_time(start, 'to_gdf_split()')
+        #logger.info(f'Time Taken: {t}')
+        return gdf
+
+    @traceback_exception_handler
+    def to_gdf(self, all_features=False):
+        start = time.time()
+        if not Path(self.geojson_file.path).is_file():
+            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
+        if settings.USE_LAYER_SPLIT_FILES:
+            gdf = self.to_gdf_split(all_features)
+
+        elif settings.USE_LAYER_STREAMING:
+            gdf = self.to_gdf_streamed(all_features)
+
+        else:
+            gdf = gpd.read_file(self.geojson_file.path)
+            gdf.set_crs(self.crs, inplace=True, allow_override=True)
+            HelperUtils.log_elapsed_time(start, 'to_gdf()')
+
+        return gdf
 
     @traceback_exception_handler
     def geojson_generator(self):
@@ -244,18 +327,30 @@ class Layer(RevisionedMixin):
             raise
 
         return version_obj 
-            
-class LayerRequestLog(models.Model):
+
+class RequestTypeEnum():
     FULL = 'FULL'
     PARTIAL = 'PARTIAL'
     SINGLE = 'SINGLE'
+    REFRESH_PARTIAL = 'REFRESH_PARTIAL'
+    REFRESH_SINGLE = 'REFRESH_SINGLE'
+    TEST_GROUP = 'TEST_GROUP'
+    TEST_SINGLE = 'TEST_SINGLE'
     REQUEST_TYPE_CHOICES = (
         (FULL, 'FULL'),
         (PARTIAL, 'PARTIAL'),
         (SINGLE, 'SINGLE'),
+        (REFRESH_PARTIAL, 'REFRESH_PARTIAL'),
+        (REFRESH_SINGLE, 'REFRESH_SINGLE'),
+        (TEST_GROUP, 'TEST_GROUP'),
+        (TEST_SINGLE, 'TEST_SINGLE'),
     )
 
-    request_type = models.CharField(max_length=40, choices=REQUEST_TYPE_CHOICES, default=REQUEST_TYPE_CHOICES[0][0])
+           
+class LayerRequestLog(models.Model):
+
+    #request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES, default=RequestTypeEnum.REQUEST_TYPE_CHOICES[0][0])
+    request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES)
     system = models.CharField('Application name', max_length=64)
     app_id = models.SmallIntegerField('Application ID')
     data = JSONField('Request query from external system')
@@ -273,7 +368,7 @@ class LayerRequestLog(models.Model):
     def request_details(self, system=None, app_id=None, request_type='FULL', show_layers=False):
         '''
         Get history of layers requested from external systems
-        request_type: FULL | PARTIAL | SINGLE
+        request_type: FULL | REFRESH | PARTIAL | SINGLE
         '''
 
         if system is None and app_id is None:
@@ -388,6 +483,7 @@ class Task(RevisionedMixin):
     request_log = models.OneToOneField(LayerRequestLog, on_delete=models.CASCADE, related_name='request_log', null=True, blank=True)
     created     = models.DateTimeField(default=timezone.now, editable=False) # jm: needed for ordering queue
     retries     = models.PositiveSmallIntegerField(default=0)
+    request_type = models.CharField(max_length=40, choices=RequestTypeEnum.REQUEST_TYPE_CHOICES)
 
     objects = models.Manager()
     queued_jobs = ActiveQueueManager()
@@ -396,7 +492,7 @@ class Task(RevisionedMixin):
 
     class Meta:
         app_label = 'sqs'
-        #ordering = ('created_date',)
+        ordering = ('priority', '-created')
 
     def __str__(self):
         return f'{self.id} {self.system}_{self.app_id}'

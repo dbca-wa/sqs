@@ -11,14 +11,18 @@ import requests
 import json
 import os
 import sys
+import math
 from datetime import datetime
 from dateutil import parser
 import psutil
 import gc
+from pathlib import Path
+from argparse import Namespace
+from geojsplit import cli as geojsplit_cli
 
 from sqs.components.gisquery.models import Layer, GeoJsonFile
 from sqs.exceptions import LayerProviderException
-from sqs.utils import DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
+from sqs.utils import HelperUtils, DATE_FMT, DATETIME_FMT, DATETIME_T_FMT
 
 import logging
 logger = logging.getLogger(__name__)
@@ -126,6 +130,25 @@ class LayerLoader():
             logger.error(err_msg)
             raise LayerProviderException(err_msg, code='file_layer_retrieve_error' )
 
+
+    def split_geojson_files(self, filename, geojson):
+        ''' Util function to split large geojson file to smaller chunks with given no. of features
+            Egi. client usage:
+                geojsplit --geometry-count 10000 /path-to-geojson/CPT_DBCA_REGIONS.geojson
+        '''
+        try:
+            file_size = Path(filename).stat().st_size/1024**2 # MB
+            if settings.MAX_GEOJSPLIT_SIZE!=0 and file_size > settings.MAX_GEOJSPLIT_SIZE:
+                num_files = math.ceil(file_size/settings.MAX_GEOJSPLIT_SIZE)
+                geometry_count = math.ceil(len(geojson['features'])/num_files)
+                args = Namespace(geojson=filename, geometry_count=geometry_count, suffix_length=None, output=None, limit=None, verbose=False, dry_run=False)
+                geojsplit_cli.input_geojson(args=args)
+        except Exception as e:
+            err_msg = f'Error splitting geojson to smaller files\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='file_layer_geojsplit_error' )
+
+
     #def load_layer(self, filename=None, geojson=None, force_load=False):
     def load_layer(self, filename=None, geojson=None):
 
@@ -143,15 +166,14 @@ class LayerLoader():
             attributes=list(geojson['features'][0]['properties'].keys())
             for attr in attributes:
                 try:
-                    values = [f['properties'][attr] for f in geojson['features']]
+                    values = list(set([f['properties'][attr] for f in geojson['features']])) # list(set([...])) --> return unique values
                     attr_values.append(dict(attribute=attr, values=values))
                 except Exception as ex:
                     logger.error(f'Error setting attributes for layer, omitting attr {attr}: {ex}')
 
             return attr_values
 
-
-        gc.collect()
+        HelperUtils.force_gc()
         layer = None
         if self.name in settings.KB_EXCLUDE_LAYERS:
             logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')
@@ -183,6 +205,15 @@ class LayerLoader():
                 filename=f'{path}/{self.name}.geojson'
                 with open(filename, 'w') as f:
                     json.dump(geojson, f)
+                #filename='data_store/CPT_DBCA_LEGISLATED_TENURE/20240829T142718/CPT_DBCA_LEGISLATED_TENURE.geojson'
+                self.split_geojson_files(filename, geojson)
+
+#                file_size = Path(filename).stat().st_size/1024**2 # MB
+#                if settings.MAX_GEOJSPLIT_SIZE!=0 and file_size > settings.MAX_GEOJSPLIT_SIZE:
+#                    file_size_split = math.ceil(file_size/settings.MAX_GEOJSPLIT_SIZE)
+#                    geometry_count = math.ceil(len(geojson['features'])/file_size_split)
+#                    args = Namespace(geojson=filename, geometry_count=geometry_count, suffix_length=None, output=None, limit=None, verbose=False, dry_run=False)
+#                    geojsplit_cli.input_geojson(args=args)
 
 #                attributes = layer_gdf1.loc[:, layer_gdf1.columns != 'geometry'].columns.to_list()
 #

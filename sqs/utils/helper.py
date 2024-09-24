@@ -178,7 +178,7 @@ class DefaultOperator():
             logger.error(f'Error casting to INT or FLOAT: Overlay Result {overlay_result}\n \
                            Layer column_name: {column_name}, operator: {operator}, value: {value}\n{str(e)}')
         except Exception as e:
-            logger.error(f'Error determining operator result: Overlay Result {overlay_result}, Operator {operator}, Value {value}\{str(e)}')
+            logger.error(f'Error determining operator result: Overlay Result {overlay_result}, Operator {operator}, Value {value}\n{str(e)}')
 
         return self.row_filter
 

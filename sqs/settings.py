@@ -15,6 +15,7 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG', False)
 CSRF_COOKIE_SECURE = env('CSRF_COOKIE_SECURE', False)
 SESSION_COOKIE_SECURE = env('SESSION_COOKIE_SECURE', False)
+
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
@@ -55,10 +56,16 @@ CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
 #GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
 DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in meters
 MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', None) # MB
-GEOJSON_BATCH_SIZE = env('GEOJSON_BATCH_SIZE', 1000)
+GEOJSON_BATCH_SIZE = env('GEOJSON_BATCH_SIZE', 5000)
 SHOW_SYS_MEM_STATS = env('SHOW_SYS_MEM_STATS', False)
+USE_LAYER_STREAMING = env('USE_LAYER_STREAMING', False)
+USE_LAYER_SPLIT_FILES = env('USE_LAYER_SPLIT_FILES', True)
+MAX_GEOJSPLIT_SIZE = env('MAX_GEOJSPLIT_SIZE', 50) # MB
+GC_ITER_LOOP = env('GC_ITER_LOOP', 5)
 MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
+LOG_ELAPSED_TIME = env('LOG_ELAPSED_TIME', False)
+LOG_REQUEST_STATS = env('LOG_REQUEST_STATS', False)
 
 KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
 KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
@@ -103,18 +110,21 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
-    'django_cron',
+    #'django_cron',
 
-    'reversion_compare',
-    'bootstrap3',
+    #'reversion_compare',
+    #'bootstrap3',
     'sqs',
     'sqs.components.gisquery',
     'sqs.components.api',
     'reversion',
     'rest_framework',
-    'rest_framework.authtoken',
-    'rest_framework_gis',
-    'rest_framework_swagger',
+    #'rest_framework.authtoken',
+    #'rest_framework_gis',
+    #'rest_framework_swagger',
+    #"debug_toolbar",
+    #'pympler',
+
     'appmonitor_client',
 ]
 
@@ -152,6 +162,39 @@ MIDDLEWARE = [
     #'sqs.middleware.CacheControlMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+
+#SHOW_DEBUG_TOOLBAR = env('SHOW_DEBUG_TOOLBAR', False)
+#if SHOW_DEBUG_TOOLBAR:
+#    INTERNAL_IPS = [
+#        "127.0.0.1",
+#    ]
+#
+#    MIDDLEWARE = [
+#        "debug_toolbar.middleware.DebugToolbarMiddleware",
+#        *MIDDLEWARE,
+#    ]
+#
+#    DEBUG_TOOLBAR_PANELS = [
+#	'debug_toolbar.panels.timer.TimerPanel',
+#	'pympler.panels.MemoryPanel',
+#
+#	'debug_toolbar.panels.history.HistoryPanel',
+#	'debug_toolbar.panels.versions.VersionsPanel',
+#	'debug_toolbar.panels.timer.TimerPanel',
+#	'debug_toolbar.panels.settings.SettingsPanel',
+#	'debug_toolbar.panels.headers.HeadersPanel',
+#	'debug_toolbar.panels.request.RequestPanel',
+#	'debug_toolbar.panels.sql.SQLPanel',
+#	'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+#	'debug_toolbar.panels.templates.TemplatesPanel',
+#	'debug_toolbar.panels.alerts.AlertsPanel',
+#	'debug_toolbar.panels.cache.CachePanel',
+#	'debug_toolbar.panels.signals.SignalsPanel',
+#	'debug_toolbar.panels.redirects.RedirectsPanel',
+#	'debug_toolbar.panels.profiling.ProfilingPanel',
+#
+#    ]
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -173,20 +216,21 @@ TEMPLATES = [
 #TEMPLATES[0]['DIRS'].append(os.path.join(BASE_DIR, 'sqs', 'templates'))
 #TEMPLATES[0]['DIRS'].append(os.path.join(BASE_DIR, 'sqs','components','emails', 'templates'))
 
-BOOTSTRAP3 = {
-    'jquery_url': '//static.dpaw.wa.gov.au/static/libs/jquery/2.2.1/jquery.min.js',
-    #'base_url': '//static.dpaw.wa.gov.au/static/libs/twitter-bootstrap/3.3.6/',
-    'base_url': '/static/ledger/',
-    'css_url': None,
-    'theme_url': None,
-    'javascript_url': None,
-    'javascript_in_head': False,
-    'include_jquery': False,
-    'required_css_class': 'required-form-field',
-    'set_placeholder': False,
-}
+#BOOTSTRAP3 = {
+#    'jquery_url': '//static.dpaw.wa.gov.au/static/libs/jquery/2.2.1/jquery.min.js',
+#    #'base_url': '//static.dpaw.wa.gov.au/static/libs/twitter-bootstrap/3.3.6/',
+#    'base_url': '/static/ledger/',
+#    'css_url': None,
+#    'theme_url': None,
+#    'javascript_url': None,
+#    'javascript_in_head': False,
+#    'include_jquery': False,
+#    'required_css_class': 'required-form-field',
+#    'set_placeholder': False,
+#}
+#
+#del BOOTSTRAP3['css_url']
 
-del BOOTSTRAP3['css_url']
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
@@ -231,6 +275,8 @@ NOTIFICATION_EMAIL=env('NOTIFICATION_EMAIL')
 CRON_NOTIFICATION_EMAIL = env('CRON_NOTIFICATION_EMAIL', NOTIFICATION_EMAIL).lower()
 EMAIL_HOST = env('EMAIL_HOST', 'smtp.lan.fyi')
 
+#SILKY_PYTHON_PROFILER = True
+
 # Database
 DATABASES = {
     # Defined in the DATABASE_URL env variable.
@@ -272,6 +318,13 @@ LOGGING = {
             'formatter': 'verbose',
             'maxBytes': 5242880
         },
+        'request_stats': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'requests.log'),
+            'formatter': 'verbose',
+            'maxBytes': 5242880
+        },
 
     },
     'loggers': {
@@ -296,6 +349,10 @@ LOGGING = {
         'sys_stats': {
             'handlers': ['debug'],
             'level': 'DEBUG'
+        },
+        'request_stats': {
+            'handlers': ['request_stats'],
+            'level': 'INFO'
         },
 
     }

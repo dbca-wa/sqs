@@ -53,11 +53,14 @@ urlpatterns = [
 #    url(r'api/v1/das4', csrf_exempt(gisquery_api.DisturbanceLayerAPIView3.as_view()), name='das4'),
 #    url(r'api/v1/das5', gisquery_api.DisturbanceLayerAPIView3.as_view(), name='das5'),
 
-    re_path(r'schema/', schema_view),
+    #re_path(r'schema/', schema_view),
 ]
 
+#urlpatterns += [re_path('silk/', include('silk.urls', namespace='silk'))]
+
 #if settings.SHOW_DEBUG_TOOLBAR:
-#    import debug_toolbar
+#    from debug_toolbar.toolbar import debug_toolbar_urls
+#
 #    urlpatterns = [
-#        url('__debug__/', include(debug_toolbar.urls)),
-#    ] + urlpatterns
+#        *urlpatterns,
+#    ] + debug_toolbar_urls()

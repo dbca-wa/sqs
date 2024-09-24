@@ -32,11 +32,13 @@ from sqs.decorators import basic_exception_handler, ip_check_required, traceback
 
 from sqs.components.api import models as api_models
 from sqs.components.api import utils as api_utils
+from sqs.utils import HelperUtils
 
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
+import inspect
 
 import logging
 logger = logging.getLogger(__name__)
@@ -54,13 +56,15 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
     def csrf_token(self, request, *args, **kwargs):            
         """ https://localhost:8002/api/v1/layers/1/csrf_token.json
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         return Response({"test":"get_test"})
 
-#    @basic_exception_handler
-#    def list(self, request, *args, **kwargs):            
-#        """ http://localhost:8002/api/v1/layers/
-#        """
-#        return Response(self.queryset.values('id', 'name', 'url', 'active', 'geojson_file'))
+    @basic_exception_handler
+    def list(self, request, *args, **kwargs):            
+        """ http://localhost:8002/api/v1/layers/
+        """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
+        return Response(self.queryset.values('id', 'name', 'url', 'active'))
 
     @action(detail=True, methods=['GET',])
     @basic_exception_handler
@@ -73,6 +77,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
             List Details Specific Layer:
             http://localhost:8002/api/v1/layers/378/
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         pk = kwargs.get('pk')
         if pk == 'last':
             instance = self.queryset.last()
@@ -92,6 +97,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
         # List all layers available on SQS
         http://localhost:8002/api/v1/layers/
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         self.serializer_class = GeoJSONLayerSerializer
         layer_name = kwargs.get('pk')
         num_features = int(request.GET.get('num_features', 3))
@@ -124,6 +130,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         Check if layer is loaded and is available on SQS
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         layer_name = request.GET.get('layer_name')
 
         if layer_name is None:
@@ -150,6 +157,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         Check if layer is loaded and is available on SQS
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         layer_name = request.GET.get('layer_name')
         attrs_only = request.GET.get('attrs_only')
         attr_name = request.GET.get('attr_name')
@@ -195,6 +203,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
 
         Clears layer cache, if exists on SQS
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         layer_name = kwargs.get('pk')
 
         layer_provider = DbLayerProvider(layer_name=layer_name, url='')
@@ -213,7 +222,7 @@ class DefaultLayerViewSet(viewsets.ModelViewSet):
             http://localhost:8002/api/v1/layers/check_queue/?proposal_id=1780&system=DAS&request_type=FULL
             requests.get('http://localhost:8002/api/v1/layers/check_queue', params={'proposal_id':'1780', 'system':'DAS', 'request_type':'FULL'})
         """
-
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         response = {}
         try:
             proposal_id = request.GET.get('proposal_id')
@@ -258,6 +267,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs?records=5
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         records = self.request.GET.get('records', 20)
         queryset = self.queryset.all().order_by('-pk')[:int(records)]
         serializer = self.get_serializer(queryset, many=True, remove_fields=['data', 'response'])
@@ -274,6 +284,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
 
             if '&when=True' is provided only timestamp details will be returned in the response
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         app_id = kwargs.get('pk')
         system = request.GET['system']
         request_type = request.GET.get('request_type', 'FULL')
@@ -300,6 +311,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
 
             http://localhost:8002/api/v1/logs/1780/request_data/?system=das              (Request log by Proposal ID and System)
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
         metrics = request.GET.get('metrics')
@@ -328,6 +340,7 @@ class LayerRequestLogViewSet(viewsets.ModelViewSet):
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/last/request_log_all
             https://sqs-dev.dbca.wa.gov.au/api/v1/logs/766/request_log_all?request_type=all ('all'/'partial'/'single')
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         pk = kwargs.get('pk')
         request_type = request.GET.get('request_type')
 
@@ -366,6 +379,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """ http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11
             http://localhost:8002/api/v1/tasks/get_tasks?task_ids=10,11&all
         """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         all_fields = True if 'all' in request.GET else False
         task_ids = [task_id.strip() for task_id in request.GET['task_ids'].split(',')]
         qs = Task.objects.filter(id__in=task_ids)
@@ -397,6 +411,7 @@ class TaskPaginatedViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET',])
     def task_datatable_list(self, request, *args, **kwargs):
         """ http://localhost:8002/api/v1/task_paginated/task_datatable_list/?format=datatables&draw=1&length=10 """
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         queryset = self.get_queryset()
 
         #queryset = self.filter_queryset(queryset)
@@ -416,6 +431,7 @@ class PointQueryViewSet(viewsets.ModelViewSet):
     http_method_names = ['get'] #, 'post', 'patch', 'delete']
 
     def list(self, request, *args, **kwargs):            
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         return Response(status.HTTP_405_METHOD_NOT_ALLOWED)
 
     @action(detail=False, methods=['GET',])
@@ -428,6 +444,7 @@ class PointQueryViewSet(viewsets.ModelViewSet):
 
             https://sqs-dev.dbca.wa.gov.au/api/v1/point_query/lonlat_attrs?layer_name=cddp:dpaw_regions&layer_attrs=office,region&lon=121.465836&lat=-30.748890
         '''
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         try:
             layer_name = request.GET['layer_name']
             layer_attrs = request.GET.get('layer_attrs', [])

@@ -148,7 +148,6 @@ class DisturbancePrefillData(object):
 
                         existing_value = self.search_schema.search_data(item['name'])
 #                        if existing_value:
-#                            import ipdb; ipdb.set_trace()
                         sqs_value = sqs_dict.get('result')
                         #layer_details = sqs_dict.get('layer_details')
 
@@ -168,7 +167,6 @@ class DisturbancePrefillData(object):
 
 
                     elif item['type'] in TEXT_WIDGETS: #['text', 'text_area']:
-#                        import ipdb; ipdb.set_trace()
                         #All the other types e.g. text_area, text, date (except label).
                         if item['type'] != 'label':
                             existing_value = self.search_schema.search_data(item['name'])

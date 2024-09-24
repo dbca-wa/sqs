@@ -16,8 +16,9 @@ import json
 import unicodecsv
 import pytz
 import traceback
+import inspect
 
-from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
+from sqs.components.gisquery.models import Layer, LayerRequestLog, Task, RequestTypeEnum
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper, PointQueryHelper
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery, DisturbancePrefillData
 from sqs.utils.loader_utils import DbLayerProvider
@@ -28,6 +29,7 @@ from sqs.decorators import ip_check_required, basic_exception_handler, traceback
 from sqs.exceptions import LayerProviderException
 from sqs.components.gisquery.utils import set_das_cache, clear_cache
 from sqs.components.gisquery.utils.schema import is_valid_schema
+from sqs.utils import HelperUtils
 
 import logging
 logger = logging.getLogger(__name__)
@@ -59,6 +61,7 @@ class DisturbanceLayerView(View):
             return datetime.strptime(datetime.strftime(when, '%Y-%m-%dT%H:%M:%S'), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
 
 
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         start_time = time.time()
         cache_key = None
         try:
@@ -84,7 +87,8 @@ class DisturbanceLayerView(View):
 
             # check if a previous request exists with a more recent timestamp
             # datetime.strptime('2023-07-04T10:53:17', '%Y-%m-%dT%H:%M:%S')
-            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type='FULL', system='DAS')
+            conditions = [RequestTypeEnum.FULL, RequestTypeEnum.PARTIAL, RequestTypeEnum.REFRESH_PARTIAL, RequestTypeEnum.REFRESH_SINGLE]
+            qs_cur = LayerRequestLog.objects.filter(app_id=proposal['id'], request_type__in=conditions, system='DAS')
             if qs_cur.exists() and current_ts is not None:
                 ts = datetime.strptime(current_ts, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=pytz.utc)
                 last_query_date = normalise_datetime(qs_cur.latest('when').when)
@@ -147,6 +151,7 @@ class DisturbanceLayerQueueView(View):
         """
 
         try:
+            HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
             data = json.loads(request.POST['data'])
 
             proposal = data.get('proposal')
@@ -193,6 +198,8 @@ class DisturbanceLayerQueueView(View):
                     #'data': data,
                     'request_log': request_log,
                     'requester': requester,
+                    'request_type': request_type,
+                    'priority': Task.PRIORITY_HIGH if request_type in [RequestTypeEnum.TEST_SINGLE, RequestTypeEnum.TEST_GROUP] else Task.PRIORITY_NORMAL,
                 },
             )
 
@@ -220,7 +227,7 @@ class DisturbanceLayerQueueView(View):
 
         return JsonResponse(status=status.HTTP_200_OK, data=response)
 
-
+from sqs.utils.loader_utils import RecentLayerProvider
 class DefaultLayerProviderView(View):
     queryset = Layer.objects.filter().order_by('id')
     """ http://localhost:8002/api/v1/layers.json """
@@ -232,6 +239,7 @@ class DefaultLayerProviderView(View):
                 2. creates/updates layer from Geoserver
         '''
         try:
+            HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
             layer_name = request.POST['layer_name']
             layer_url = request.POST['layer_url']
             system = request.POST['system']
@@ -242,6 +250,11 @@ class DefaultLayerProviderView(View):
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer_name specified in Request'})
             if layer_url is None:
                 return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'No layer url specified in Request'})
+
+            # get list of SQS layers that have been updated in KB in last 14 days (checks SQS layer_names subset)
+            layers_updated = RecentLayerProvider(days_ago=14).get_layers_to_update()
+            if layer_name not in layers_updated:
+                return JsonResponse({'message': f'Layer {layer_name} Not Updated - there is no change to layer in last 14 days'})
 
             qs_layer = self.queryset.filter(name=layer_name)
             cur_version = qs_layer[0].version if qs_layer.exists() else None
@@ -259,8 +272,7 @@ class DefaultLayerProviderView(View):
 
         if cur_version is None or layer_info.get('layer_version') > cur_version:
             layer_info['message'] = f'Layer {layer_info["layer_name"]} Updated.'
-        else:
-            layer_info['message'] = f'Layer {layer_info["layer_name"]} Not Updated - there is no change to layer'
+
         return JsonResponse(layer_info)
 
 
@@ -268,9 +280,11 @@ class TestView(View):
 
     @csrf_exempt
     def post(self, request):
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         return HttpResponse('This is a POST only view')
 
     def get(self, request):
+        HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
         return HttpResponse('This is a GET only view')
 
 #class PointQueryLayerView(View):

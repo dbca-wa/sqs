@@ -1,5 +1,7 @@
 from django.conf import settings
 import traceback
+import gc
+import time
 
 from sqs.decorators import traceback_exception_handler
 
@@ -17,6 +19,10 @@ SELECT = 'select'
 DATE_FMT = '%Y-%m-%d'
 DATETIME_FMT = '%Y-%m-%d %H:%M:%S'
 DATETIME_T_FMT = '%Y%m%dT%H%M%S'
+
+import logging
+logger = logging.getLogger(__name__)
+logger_stats = logging.getLogger('request_stats')
 
 
 class HelperUtils():
@@ -58,3 +64,28 @@ class HelperUtils():
                 if question['layer']['layer_name'] not in layer_names:
                     layer_names.append(question['layer']['layer_name'])
         return layer_names
+
+#    @classmethod 
+#    def force_gc(self, data=None):
+#        if not data:
+#            gc.collect()
+#        else:
+#            data = [data] if not isinstance(data, list) else data
+#            for df in data:
+#                del df
+ 
+    @classmethod 
+    def force_gc(self, data=None):
+        del data
+        gc.collect()
+
+    @classmethod 
+    def log_elapsed_time(self, start_time, msg=''):
+        if settings.LOG_ELAPSED_TIME:
+            resp = f'Time Taken: {time.time() - start_time:.2f}s'
+            logger.info(msg + ': ' + resp if msg else resp)
+
+    @classmethod 
+    def log_request(self, msg=''):
+        if settings.LOG_REQUEST_STATS:
+            logger_stats.info(msg)

@@ -106,3 +106,38 @@ class TaskSerializer(serializers.ModelSerializer):
         return obj.request_log.response if hasattr(obj.request_log, 'response' ) else None
 
 
+#class LayerDetailSerializer(serializers.ModelSerializer):
+#    layer_name = serializers.CharField(source='name')
+#    layer_version = serializers.CharField(source='version')
+#    layer_crs = serializers.CharField(source='crs')
+#    layer_created_date = serializers.DateTimeField(source='created_at')
+#    layer_modified_date = serializers.DateTimeField(source='modified_at')
+#
+#    class Meta:
+#        model = Layer
+#        fields=(
+#            'id',
+#            'layer_name',
+#            'layer_version',
+#            'layer_crs',
+#            'layer_created_date',
+#            'layer_modified__date',
+#            'column_name',
+#            'sqs_timestamp',
+#            'error_msg',
+#        )
+#
+#    def get_cwlayer_nametime_taken(self, obj):
+#        return obj.time_taken()
+#
+#
+#    def __init__(self, *args, **kwargs):
+#        remove_fields = kwargs.pop('remove_fields', None)
+#        super().__init__(*args, **kwargs)
+#
+#        if remove_fields:
+#            # for multiple fields in a list
+#            for field_name in remove_fields:
+#                self.fields.pop(field_name)
+
+
