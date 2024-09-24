@@ -199,7 +199,7 @@ class DisturbanceLayerQueueView(View):
                     'request_log': request_log,
                     'requester': requester,
                     'request_type': request_type,
-                    'priority': Task.PRIORITY_HIGH if request_type in [RequestTypeEnum.TEST_SINGLE, RequestTypeEnum.TEST_GROUP] else Task.PRIORITY_HIGH,
+                    'priority': Task.PRIORITY_HIGH if request_type in [RequestTypeEnum.TEST_SINGLE, RequestTypeEnum.TEST_GROUP] else Task.PRIORITY_NORMAL,
                 },
             )
 

@@ -4,122 +4,143 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# t = Task.objects.filter(request_log__data__isnull=False).last()
-# t.data.keys()
-# is_valid_schema(t.data, EXPECTED_SCHEMA)
-EXPECTED_SCHEMA = {
-    'proposal': {
-        'id': int,
-        'current_ts': str,
-        'schema': list,
-        'data': list,
-    },
-    OptionalKey('request_type'): str,
-    'system': str,
-    'masterlist_questions': list,
-    'geojson': dict,
+## t = Task.objects.filter(request_log__data__isnull=False).last()
+## is_valid_schema(t.data)
+#_EXPECTED_SCHEMA_FULL = {
+#    'proposal': {
+#        'id': int,
+#        'data': object,
+#        'schema': list,
+#        OptionalKey('current_ts'): object,
+#        #OptionalKey('data'): object,
+#    },
+#    #OptionalKey('request_type'): str,
+#    'request_type': str,
+#    'requester': str,
+#    'system': str,
+#    'geojson': object,
+#    'masterlist_questions':[{
+#        'question_group': str,
+#        'questions': [
+#            {
+#                'id': int,
+#                'modified_date': object,
+#                'masterlist_question': {
+#                    'id': int,
+#                    'question': str,
+#                    'answer_type': str,
+#                },
+#                'answer_mlq': object,
+#                'group': {
+#                    'id': int, 
+#                    'name': str, 
+#                    'can_user_edit': bool,
+#                },
+#                'other_data': object,
+#                #'layers': list,
+#                'layers': [{
+#                    'id': int,
+#                    'how': str,
+#                    'layer': {
+#                        'id': int,
+#                        'layer_url': str,
+#                        'layer_name': str,
+#                        'display_name': str,
+#                    },
+#                    'value': object,
+#                    'answer': object,
+#                    'buffer': int,
+#                    'expiry': object,
+#                    'operator': str,
+#                    'column_name': str,
+#                    'prefix_info': str,
+#                    'assessor_info': str,
+#                    'modified_date': object,
+#                    'prefix_answer': str,
+#                    'assessor_items': object,
+#                    'proponent_items': object,
+#                    'visible_to_proponent': bool,
+#                    'spatial_query_question_id': int,
+#                    OptionalKey('regions'): object,
+#                    OptionalKey('no_polygons_assessor'): object,
+#                    OptionalKey('no_polygons_proponent'): object,
+#                }],
+#            }
+#        ], 
+#    }],
+#}
+
+PROPOSAL_SCHEMA = {
+    'id': int,
+    'data': object,
+    'schema': list,
+    OptionalKey('current_ts'): object,
 }
 
-# t = Task.objects.filter(request_log__data__isnull=False).last()
-# t.data['masterlist_questions'][0].keys()
-# is_valid_schema(t.data['masterlist_questions'][0], EXPECTED_MASTERLIST_QUESTION_GROUP)
-EXPECTED_MASTERLIST_QUESTION_GROUP = {
-    'questions': list,
-    'question_group': str,
+MASTERLIST_QUESTION_SCHEMA = {
+    'id': int,
+    'question': str,
+    'answer_type': str,
 }
 
-# t = Task.objects.filter(request_log__data__isnull=False).last()
-# t.data['masterlist_questions'][0]['questions'][0].keys()
-# is_valid_schema(t.data['masterlist_questions'][0]['questions'][0], EXPECTED_MASTERLIST_QUESTION)
-EXPECTED_MASTERLIST_QUESTION = {
+GROUP_SCHEMA = {
+    'id': int, 
+    'name': str, 
+    'can_user_edit': bool,
+}
+
+MAP_LAYER_SCHEMA = {
+    'id': int,
+    'layer_url': str,
+    'layer_name': str,
+    'display_name': str,
+}
+
+LAYERS_SCHEMA = {
     'id': int,
     'how': str,
-    'group': {
-        'id': int, 
-        'name': str, 
-        'can_user_edit': bool,
-    },
-    'layer': {
-        'id': int,
-        'layer_url': str,
-        'layer_name': str,
-    },
-    'value':                                    object,
-    'answer':                                   object,
-    'buffer':                                   int,
-    'expiry':                                   object,
-    'operator':                                 str,
-    'question':                                 str,
-    'answer_mlq':                               object,
-    'column_name':                              str,
-    'prefix_info':                              object,
-    'assessor_info':                            object,
-    'modified_date':                            object,
-    'prefix_answer':                            object,
-    'assessor_items':                           object,
-    'proponent_items':                          object,
-    'masterlist_question':                      list,
-    'visible_to_proponent':                     bool,
-    OptionalKey('regions'):                     object,
-    OptionalKey('no_polygons_assessor'):        object,
-    OptionalKey('no_polygons_proponent'):       object,
+    #'layer': MAP_LAYER_SCHEMA,
+    'layer': object,
+    'value': object,
+    'answer': object,
+    'buffer': int,
+    'expiry': object,
+    'operator': str,
+    'column_name': str,
+    'prefix_info': str,
+    'assessor_info': str,
+    'modified_date': object,
+    'prefix_answer': str,
+    'assessor_items': object,
+    'proponent_items': object,
+    'visible_to_proponent': bool,
+    'spatial_query_question_id': int,
+    OptionalKey('regions'): object,
+    OptionalKey('no_polygons_assessor'): object,
+    OptionalKey('no_polygons_proponent'): object,
 }
 
 # t = Task.objects.filter(request_log__data__isnull=False).last()
 # is_valid_schema(t.data)
 EXPECTED_SCHEMA_FULL = {
-    'proposal': {
-        'id': int,
-        'schema': list,
-        OptionalKey('current_ts'): object,
-        OptionalKey('data'): object,
-    },
-    OptionalKey('request_type'): str,
+    'proposal': PROPOSAL_SCHEMA,
+    'request_type': str,
     'requester': str,
     'system': str,
-    'geojson': dict,
+    'geojson': object,
     'masterlist_questions':[{
         'question_group': str,
         'questions': [
             {
                 'id': int,
-                OptionalKey('modified_date'): object,
-                'masterlist_question': {
-                    'id': int,
-                    'question': str,
-                    'answer_type': str,
-                },
+                'modified_date': object,
+                'masterlist_question': MASTERLIST_QUESTION_SCHEMA,
                 'answer_mlq': object,
-                'group': {
-                    'id': int, 
-                    'name': str, 
-                    'can_user_edit': bool,
-                },
+                'group': GROUP_SCHEMA,
                 'other_data': object,
-                'layers': list,
-#                'layers': [
-#                    'how': str,
-#
-#                ]
-#                'value':                                    object,
-#                'answer':                                   object,
-#                'buffer':                                   int,
-#                'expiry':                                   object,
-#                'operator':                                 str,
-#                #'question':                                 str,
-#                #'masterlist_question':                      object,
-#                'column_name':                              str,
-#                'prefix_info':                              object,
-#                'assessor_info':                            object,
-#                'prefix_answer':                            object,
-#                'assessor_items':                           object,
-#                'proponent_items':                          object,
-#                'visible_to_proponent':                     bool,
-#                'show_add_info_section_prop':               bool,
-                OptionalKey('regions'):                     object,
-                OptionalKey('no_polygons_assessor'):        object,
-                OptionalKey('no_polygons_proponent'):       object,
-            }
+                'layers': object,
+                #'layers': [LAYERS_SCHEMA],
+            },
         ], 
     }],
 }
