@@ -492,7 +492,8 @@ class Task(RevisionedMixin):
 
     class Meta:
         app_label = 'sqs'
-        ordering = ('priority', '-created')
+        #ordering = ('priority', '-created')
+        ordering = ('-created',)
 
     def __str__(self):
         return f'{self.id} {self.system}_{self.app_id}'
@@ -518,10 +519,20 @@ class Task(RevisionedMixin):
 
  
     def time_taken(self):
-        """ Returns task duration in mins """
+        """ Returns task duration in secs """
         if self.start_time and self.end_time:
-            return round((self.end_time - self.start_time).total_seconds()/60., 2)
+            return round((self.end_time - self.start_time).total_seconds(), 3)
         return None
+
+    @property
+    def is_long_running(self):
+        """ If task with status 'running' has been running too long, return True """
+        if settings.TASK_RUNNING_LIMIT_TIME and self.status==self.STATUS_RUNNING and (self.start_time and not self.end_time):
+            time_running = (datetime.now().replace(tzinfo=pytz.utc) - t.start_time)/3600
+            if time_running > settings.TASK_RUNNING_LIMIT_TIME:
+                return True
+        return False
+
 
 
 import reversion

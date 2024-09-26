@@ -101,8 +101,10 @@ class TaskRunner(object):
             task = Task.objects.get(id=task_id)
 
             #task.stdout = json.dumps(result.__dict__)
-            task.start_time = start_time
-            task.end_time = datetime.now().replace(tzinfo=pytz.utc)
+            if not task.start_time:
+                task.start_time = start_time
+            if not task.end_time:
+                task.end_time = datetime.now().replace(tzinfo=pytz.utc)
             task.stdout = result.stdout
             task.stderr = result.stderr
             task.status = Task.STATUS_COMPLETED
