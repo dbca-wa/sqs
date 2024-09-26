@@ -3,7 +3,7 @@ from django.conf import settings
 
 import time
 from datetime import datetime
-from pytz import timezone
+import pytz
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
 from sqs.utils.das_schema_utils import DisturbanceLayerQuery
@@ -32,6 +32,8 @@ class Command(BaseCommand):
                 logger.warn(f'Task status is \'{task.status.upper()}\'. Task status must be \'CREATED\'. Aborting command')
                 return
 
+            if not task.start_time:
+                task.start_time = datetime.now().replace(tzinfo=pytz.utc)
             task.status = Task.STATUS_RUNNING
             task.save()
             data = task.data
@@ -66,6 +68,7 @@ class Command(BaseCommand):
             task.request_log_id = request_log.id
             task.status = Task.STATUS_COMPLETED
             task.time_taken = total_time
+            task.end_time = datetime.now().replace(tzinfo=pytz.utc)
             task.save()
             logger.info(f'Request Log ID {request_log.id}, URL {sqs_log_url}, Time Take {total_time}')
 
