@@ -111,7 +111,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django_extensions',
-    #'django_cron',
+    'django_cron',
 
     #'reversion_compare',
     #'bootstrap3',
