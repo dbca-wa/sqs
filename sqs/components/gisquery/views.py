@@ -177,13 +177,24 @@ class DisturbanceLayerQueueView(View):
 
             is_valid = is_valid_schema(data)
             if not is_valid:
-                return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Invalid Schema Payload in Request: {is_valid}'})
+                #return  JsonResponse(status=status.HTTP_400_BAD_REQUEST, data={'errors': f'Invalid Schema Payload in Request: {is_valid}'})
+                logger.error(f'Proposal {proposal}: Invalid Schema Payload in Request: {is_valid}')
+
+            task_qs = Task.objects.filter(status=Task.STATUS_RUNNING, system=system, app_id=proposal["id"])
+            if task_qs.count() > 0:
+                response = {'message': f'Request aborted: Task is already running: Proposal {proposal.get("id")}' , 'position': f'{task_qs[0].id}-{task_qs[0].position}'}
+                return  JsonResponse(status=status.HTTP_208_ALREADY_REPORTED, data=response)
 
             task_qs = Task.objects.filter(
-                status=Task.STATUS_RUNNING, system=system, app_id=proposal["id"],
+                status=Task.STATUS_CREATED,
+                request_type=RequestTypeEnum.REFRESH_SINGLE, 
+                requester=requester,
+                system=system, 
+                app_id=proposal["id"]
             )
             if task_qs.count() > 0:
-                response = {'message': f'Request aborted: Task is already running: Proposal {proposal.get("id")}'}
+                response = {'message': f'Request aborted: Task is already queued: Proposal {proposal.get("id")}' , 'position': f'{task_qs[0].id}-{task_qs[0].position}'}
+                return  JsonResponse(status=status.HTTP_208_ALREADY_REPORTED, data=response)
 
             request_log = LayerRequestLog.create_log(data, request_type)
 
@@ -205,7 +216,7 @@ class DisturbanceLayerQueueView(View):
 
             if created:
                 response = {'data': {'task_id': task.id, 'task_created': created},
-                            'message': f'Requested Task is queued at position {task.position}', 'position': f'{task.position}'
+                            'message': f'Requested Task is queued at position {task.position}', 'position': f'{task.id}-{task.position}'
                            }
             else: 
                 # request is an update to an existing queued task 
@@ -218,7 +229,7 @@ class DisturbanceLayerQueueView(View):
                 task.save()
 
                 response = {'data': {'task_id': task.id, 'task_created': created}, 
-                            'message': f'Previously queued request at position {task.position} has been updated with new request', 'position': f'{task.position}'
+                            'message': f'Previously queued request at position {task.position} has been updated with new request', 'position': f'{task.id}-{task.position}'
                            }
 
         except Exception as e:
