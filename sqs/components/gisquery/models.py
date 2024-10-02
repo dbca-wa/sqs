@@ -527,9 +527,16 @@ class Task(RevisionedMixin):
     @property
     def is_long_running(self):
         """ If task with status 'running' has been running too long, return True """
-        if settings.TASK_RUNNING_LIMIT_TIME and self.status==self.STATUS_RUNNING and (self.start_time and not self.end_time):
+        if 'REFRESH' in self.request_type:
+            running_limit_time = settings.TASK_REFRESH_RUNNING_LIMIT_TIME
+        elif 'TEST' in self.request_type:
+            running_limit_time = settings.TASK_TEST_RUNNING_LIMIT_TIME
+        else :
+            running_limit_time = settings.TASK_PREFILL_RUNNING_LIMIT_TIME
+
+        if running_limit_time and self.status==self.STATUS_RUNNING and (self.start_time and not self.end_time):
             time_running = (datetime.now().replace(tzinfo=pytz.utc) - t.start_time)/3600
-            if time_running > settings.TASK_RUNNING_LIMIT_TIME:
+            if time_running > running_limit_time:
                 return True
         return False
 

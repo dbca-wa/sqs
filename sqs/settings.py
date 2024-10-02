@@ -66,7 +66,9 @@ MAX_RETRIES = env('MAX_RETRIES', 3)
 STALE_TASKS_DAYS = env('STALE_TASKS_DAYS', 7)
 LOG_ELAPSED_TIME = env('LOG_ELAPSED_TIME', False)
 LOG_REQUEST_STATS = env('LOG_REQUEST_STATS', False)
-TASK_RUNNING_LIMIT_TIME = env('TASK_RUNNING_LIMIT_TIME', None) # In Hrs, Used to error-out task if running for longer that given no. of hours
+TASK_PREFILL_RUNNING_LIMIT_TIME = env('TASK_PREFILL_RUNNING_LIMIT_TIME', 3) # In Hrs, Used to error-out task if running for longer that given no. of hours
+TASK_REFRESH_RUNNING_LIMIT_TIME = env('TASK_REFRESH_RUNNING_LIMIT_TIME', 0.5) # In Hrs, Used to error-out task if running for longer that given no. of hours
+TASK_TEST_RUNNING_LIMIT_TIME = env('TASK_TEST_RUNNING_LIMIT_TIME', 0.5) # In Hrs, Used to error-out task if running for longer that given no. of hours
 
 KB_BASE_URL = env('KB_BASE_URL', 'https://kaartdijin-boodja.dbca.wa.gov.au/api/')
 KB_RECENT_LAYERS_URL = KB_BASE_URL + 'catalogue/entries/recent/?days_ago={}'
