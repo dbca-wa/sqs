@@ -455,6 +455,7 @@ class Task(RevisionedMixin):
     STATUS_CANCELLED = 'cancelled'
     STATUS_ERROR = 'error'
     STATUS_MAX_QUEUE_TIME = 'max_queue_time'
+    STATUS_MAX_RUNNING_TIME = 'max_running_time'
     STATUS_MAX_RETRIES_REACHED = 'max_retries'
     STATUS_CHOICES = (
         (STATUS_FAILED,    'Failed'),
@@ -464,6 +465,7 @@ class Task(RevisionedMixin):
         (STATUS_CANCELLED, 'Cancelled'),
         (STATUS_ERROR,     'Error'),
         (STATUS_MAX_QUEUE_TIME, 'Max_Queue_Time_Reached'),
+        (STATUS_MAX_RUNNING_TIME, 'Max_Running_Time_Reached'),
         (STATUS_MAX_RETRIES_REACHED, 'Max_Retries_Reached'),
     )
 
@@ -535,7 +537,7 @@ class Task(RevisionedMixin):
             running_limit_time = settings.TASK_PREFILL_RUNNING_LIMIT_TIME
 
         if running_limit_time and self.status==self.STATUS_RUNNING and (self.start_time and not self.end_time):
-            time_running = (datetime.now().replace(tzinfo=pytz.utc) - t.start_time)/3600
+            time_running = (datetime.now().replace(tzinfo=pytz.utc) - self.start_time).seconds/3600
             if time_running > running_limit_time:
                 return True
         return False
