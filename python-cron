@@ -4,5 +4,6 @@
 11 9 * * 0 cd /app && python manage.py appmonitor_check >> logs/appmonitor_check.log 2>&1
 # Every 15 mins
 */5 * * * * cd /app && run-one python manage.py task_runner >> logs/task_runner.log 2>&1
+*/15 * * * * cd /app && run-one python manage.py clear_long_running_tasks >> logs/clear_long_running_tasks.log 2>&1
 */5 * * * * cd /app && run-one python manage.py runcrons >> logs/runcrons.log 2>&1
 
