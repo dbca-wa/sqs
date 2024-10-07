@@ -264,10 +264,11 @@ class DefaultLayerProviderView(View):
 
             # get list of SQS layers that have been updated in KB in last 14 days (checks SQS layer_names subset)
             layers_updated = RecentLayerProvider(days_ago=14).get_layers_to_update()
-            if layer_name not in layers_updated:
+            qs_layer = self.queryset.filter(name=layer_name)
+            if layer_name not in layers_updated and qs_layer.exists():
+                # Layer has not been updated in KB in last <n> days AND the layer already exists in SQS
                 return JsonResponse({'message': f'Layer {layer_name} Not Updated - there is no change to layer in last 14 days'})
 
-            qs_layer = self.queryset.filter(name=layer_name)
             cur_version = qs_layer[0].version if qs_layer.exists() else None
             layer_info, layer_gdf = DbLayerProvider(layer_name, layer_url).get_layer_from_geoserver()
 
