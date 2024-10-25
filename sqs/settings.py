@@ -5,6 +5,8 @@ import sys
 import confy
 from confy import env, database
 import dj_database_url
+import json
+import decouple
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 confy.read_environment_file(BASE_DIR+"/.env")
@@ -375,3 +377,11 @@ if "--disable-cache" in sys.argv:
     CACHES['default'] = {'BACKEND': 'django.core.cache.backends.dummy.DummyCache',}
     sys.argv.remove("--disable-cache")
 
+
+CSRF_TRUSTED_ORIGINS_STRING = decouple.config("CSRF_TRUSTED_ORIGINS", default='[]')
+CSRF_TRUSTED_ORIGINS = json.loads(str(CSRF_TRUSTED_ORIGINS_STRING))
+
+# This is needed so that the chmod is not called in django/core/files/storage.py
+# (_save method of FileSystemStorage class)
+# As it causes a permission exception when using azure network drives
+FILE_UPLOAD_PERMISSIONS = None
