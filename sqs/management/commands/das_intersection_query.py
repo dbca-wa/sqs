@@ -49,8 +49,8 @@ class Command(BaseCommand):
 
             dlq = DisturbanceLayerQuery(masterlist_questions, geojson, proposal)
             response = dlq.query()
-            #response['sqs_log_url'] = request.build_absolute_uri().replace('das/spatial_query', f'logs/{request_log.id}/request_log')
-            sqs_log_url = f'http://localhost:8002/api/v1/logs/{request_log.id}/request_log/'
+            #sqs_log_url = f'http://localhost:8002/api/v1/logs/{request_log.id}/request_log/'
+            sqs_log_url = f'{settings.SITE_URL}/api/v1/logs/{request_log.id}/request_log/'
             response['sqs_log_url'] = sqs_log_url
             response['request_type'] = request_type
             response['when'] = request_log.when.strftime("%Y-%m-%dT%H:%M:%S")
