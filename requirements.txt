@@ -1,6 +1,6 @@
 Django~=5.0.0
 #Django~=3.2.0
-GDAL==3.8.4
+GDAL==3.8.3
 #Django==3.2.23
 #django-extensions==1.9.8
 django-extensions==3.2.3
@@ -50,7 +50,7 @@ pandas==2.2.2
 python-dateutil==2.8.2
 cligj==0.7.2
 click-plugins==1.1.1
-numpy==2.0.1
+numpy==2.1.2
 
 # next packages required for geopandas -- plotting
 cycler==0.11.0

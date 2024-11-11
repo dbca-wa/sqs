@@ -9,6 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/manage.py",
+            "pythonPath": "${workspaceFolder}/venv/local/bin/python",
             "args": [
                 "runserver",
                 "0.0.0.0:9131"
