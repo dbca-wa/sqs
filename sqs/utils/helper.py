@@ -208,7 +208,7 @@ class DefaultOperator():
 
         grouped_res = []
         if visible_to_proponent:
-            grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
+            grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False, sep=' | ).strip('\n').split('\n')
 
         #if column_prefix:
         #    grouped_res = [column_prefix[0]]  + grouped_res
@@ -222,7 +222,7 @@ class DefaultOperator():
         column_names = [i['info'].strip() for i in assessor_items if 'info' in i and i['info']]
         #column_prefix = [i['prefix'].strip() for i in assessor_items if 'prefix' in i and i['prefix']]
 
-        grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False).strip('\n').split('\n')
+        grouped_res = self._get_overlay_result_df(column_names).to_csv(header=None, index=False, sep=' | ').strip('\n').split('\n')
 
         #if column_prefix:
         #    grouped_res = [column_prefix[0]]  + grouped_res
