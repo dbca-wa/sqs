@@ -3,6 +3,7 @@ from django.conf import settings
 
 import time
 from datetime import datetime
+from django.utils import timezone
 import pytz
 
 from sqs.components.gisquery.models import Layer, LayerRequestLog, Task
@@ -33,7 +34,8 @@ class Command(BaseCommand):
                 return
 
             if not task.start_time:
-                task.start_time = datetime.now().replace(tzinfo=pytz.utc)
+                #task.start_time = datetime.now().replace(tzinfo=pytz.utc)
+                task.start_time = timezone.localtime()
             task.status = Task.STATUS_RUNNING
             task.save()
             data = task.data
@@ -68,7 +70,8 @@ class Command(BaseCommand):
             task.request_log_id = request_log.id
             task.status = Task.STATUS_COMPLETED
             task.time_taken = total_time
-            task.end_time = datetime.now().replace(tzinfo=pytz.utc)
+            #task.end_time = datetime.now().replace(tzinfo=pytz.utc)
+            task.end_time = timezone.localtime()
             task.save()
             logger.info(f'Request Log ID {request_log.id}, URL {sqs_log_url}, Time Take {total_time}')
 

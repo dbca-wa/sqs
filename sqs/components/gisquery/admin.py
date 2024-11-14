@@ -43,10 +43,10 @@ class LayerRequestLogAdmin(admin.ModelAdmin):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ['id', 'system', 'app_id', 'request_type', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api', 'created']
+    list_display = ['id', 'system', 'app_id', 'request_type', 'script_name', 'task_status', 'priority', 'position', 'link_to_request_log_api', 'created', 'time_queued', 'time_taken']
     list_filter = ["status", "priority", "system", 'request_type']
     search_fields = ['description', 'script', 'status', 'priority']
-    readonly_fields = ('start_time', 'end_time', 'time_taken', 'stdout', 'stderr', 'description', 'created_date') #, 'data')
+    readonly_fields = ('start_time', 'end_time', 'time_queued', 'time_taken', 'stdout', 'stderr', 'description', 'created_date') #, 'data')
     exclude = ['data', 'request_log']
 
     def get_queryset(self, request):
@@ -54,7 +54,12 @@ class TaskAdmin(admin.ModelAdmin):
         return qs.filter().order_by('-created')
 
     def time_taken(self, obj):
-        return obj.time_taken()
+        return f'{round(obj.time_taken()/60, 1)}'
+    time_taken.short_description = 'Time Taken (mins)'
+    
+    def time_queued(self, obj):
+        return f'{round(obj.time_queued()/60, 1)}'
+    time_queued.short_description = 'Time Queued (mins)'
 
     def position(self, obj):
         return obj.position
