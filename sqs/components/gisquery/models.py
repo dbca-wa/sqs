@@ -525,6 +525,12 @@ class Task(RevisionedMixin):
         if self.start_time and self.end_time:
             return round((self.end_time - self.start_time).total_seconds(), 3)
         return None
+    
+    def time_queued(self):
+        """ Returns task duration in secs """
+        if self.created and self.end_time:
+            return round((self.start_time - self.created).total_seconds(), 3)
+        return None    
 
     @property
     def is_long_running(self):

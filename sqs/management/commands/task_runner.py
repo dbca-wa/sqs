@@ -3,6 +3,7 @@ from django.conf import settings
 
 import subprocess
 from datetime import datetime
+from django.utils import timezone
 
 import os
 import sys
@@ -42,7 +43,8 @@ class TaskRunner(object):
                     logger.warn(f'Too many processes spawned. Aborting command \'{cmd}\' ...')
                     continue
 
-                start_time = datetime.now().replace(tzinfo=pytz.utc)
+                #start_time = datetime.now().replace(tzinfo=pytz.utc)
+                start_time = timezone.localtime()
                 logger.info('_' * 120)
                 logger.info(f'Executing command \'{cmd}\'')
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True, shell=True)
@@ -104,7 +106,8 @@ class TaskRunner(object):
             if not task.start_time:
                 task.start_time = start_time
             if not task.end_time:
-                task.end_time = datetime.now().replace(tzinfo=pytz.utc)
+                #task.end_time = datetime.now().replace(tzinfo=pytz.utc)
+                task.end_time = timezone.localtime()
             task.stdout = result.stdout
             task.stderr = result.stderr
             task.status = Task.STATUS_COMPLETED
@@ -115,7 +118,8 @@ class TaskRunner(object):
             task.stderr = str(e)
             task.status = Task.STATUS_ERROR
 
-        task.end_date = datetime.now()
+        #task.end_date = datetime.now()
+        task.end_time = timezone.localtime()
         task.save()
         return task.time_taken()
 
