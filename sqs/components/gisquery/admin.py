@@ -54,11 +54,17 @@ class TaskAdmin(admin.ModelAdmin):
         return qs.filter().order_by('-created')
 
     def time_taken(self, obj):
-        return f'{round(obj.time_taken()/60, 1)}'
+        try:
+            return f'{round(obj.time_taken()/60, 1)}'
+        except Exception as e:
+            return ''
     time_taken.short_description = 'Time Taken (mins)'
     
     def time_queued(self, obj):
-        return f'{round(obj.time_queued()/60, 1)}'
+        try:
+            return f'{round(obj.time_queued()/60, 1)}'
+        except Exception as e:
+            return ''
     time_queued.short_description = 'Time Queued (mins)'
 
     def position(self, obj):
