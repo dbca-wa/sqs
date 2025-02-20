@@ -24,9 +24,11 @@ RUN apt-get install --no-install-recommends -y libpq-dev patch
 RUN apt-get install --no-install-recommends -y postgresql-client mtr
 RUN apt-get install --no-install-recommends -y sqlite3 vim postgresql-client ssh htop
 RUN apt-get install --no-install-recommends -y graphviz libgraphviz-dev pkg-config run-one virtualenv software-properties-common
-#RUN ln -s /usr/bin/python3 /usr/bin/python 
-#RUN ln -s /usr/bin/pip3 /usr/bin/pip
-#RUN pip install --upgrade pip
+
+# Install GDAL
+RUN add-apt-repository ppa:ubuntugis/ubuntugis-unstable
+RUN apt update
+RUN apt-get install --no-install-recommends -y gdal-bin python3-gdal
 
 # GDAL
 #RUN wget -O /tmp/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl https://github.com/girder/large_image_wheels/raw/wheelhouse/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=e2fe6cfbab02d535bc52c77cdbe1e860304347f16d30a4708dc342a231412c57
@@ -71,10 +73,11 @@ ENV PATH=/app/venv/bin:$PATH
 COPY --chown=oim:oim requirements.txt ./
 
 #COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt 
-  # Update the Django <1.11 bug in django/contrib/gis/geos/libgeos.py
-  # Reference: https://stackoverflow.com/questions/18643998/geodjango-geosexception-error
-  #&& sed -i -e "s/ver = geos_version().decode()/ver = geos_version().decode().split(' ')[0]/" /usr/local/lib/python3.6/dist-packages/django/contrib/gis/geos/libgeos.py \
+RUN pip3 install --upgrade pip && \
+    pip3 install --no-cache-dir -r requirements.txt 
+# Update the Django <1.11 bug in django/contrib/gis/geos/libgeos.py
+# Reference: https://stackoverflow.com/questions/18643998/geodjango-geosexception-error
+#&& sed -i -e "s/ver = geos_version().decode()/ver = geos_version().decode().split(' ')[0]/" /usr/local/lib/python3.6/dist-packages/django/contrib/gis/geos/libgeos.py \
 #  && rm -rf /var/lib/{apt,dpkg,cache,log}/ /tmp/* /var/tmp/*
 
 # Install the project (ensure that frontend projects have been built prior to this step).
