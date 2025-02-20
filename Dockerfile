@@ -1,6 +1,9 @@
 # Prepare the base environment.
 FROM ubuntu:24.04 AS builder_base_sqs
-MAINTAINER asi@dbca.wa.gov.au
+
+LABEL maintainer="asi@dbca.wa.gov.au"
+LABEL org.opencontainers.image.source="https://github.com/dbca-wa/sqs"
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBUG=True
 ENV TZ=Australia/Perth
@@ -55,7 +58,8 @@ RUN chmod 755 /bin/scheduler.py
 
 
 # Install Python libs from requirements.txt.
-FROM builder_base_sqs as python_libs_sqs
+FROM builder_base_sqs AS python_libs_sqs
+
 WORKDIR /app
 USER oim
 #RUN virtualenv -p python3.11 /app/venv
