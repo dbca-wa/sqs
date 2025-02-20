@@ -19,7 +19,7 @@ ENV BPAY_ALLOWED=False
 RUN apt-get clean
 RUN apt-get update
 RUN apt-get upgrade -y
-RUN apt-get install --no-install-recommends -y wget git libmagic-dev gcc binutils libproj-dev gdal-bin libgdal-dev build-essential python3 python3-setuptools python3-dev python3-pip tzdata libreoffice cron rsyslog 
+RUN apt-get install --no-install-recommends -y wget git libmagic-dev gcc binutils libproj-dev build-essential python3 python3-setuptools python3-dev python3-pip tzdata libreoffice cron rsyslog 
 RUN apt-get install --no-install-recommends -y libpq-dev patch
 RUN apt-get install --no-install-recommends -y postgresql-client mtr
 RUN apt-get install --no-install-recommends -y sqlite3 vim postgresql-client ssh htop
@@ -28,16 +28,7 @@ RUN apt-get install --no-install-recommends -y graphviz libgraphviz-dev pkg-conf
 # Install GDAL
 RUN add-apt-repository ppa:ubuntugis/ubuntugis-unstable
 RUN apt update
-RUN apt-get install --no-install-recommends -y gdal-bin python3-gdal
-
-# GDAL
-#RUN wget -O /tmp/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl https://github.com/girder/large_image_wheels/raw/wheelhouse/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=e2fe6cfbab02d535bc52c77cdbe1e860304347f16d30a4708dc342a231412c57
-#RUN pip install /tmp/GDAL-3.8.3-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-
-#RUN add-apt-repository ppa:deadsnakes/ppa && \
-#apt-get update && \
-#apt-get install --no-install-recommends -y python3.11 python3.11-dev python3.11-distutils && \
-#ln -s /usr/bin/python3.11 /usr/bin/python 
+RUN apt-get install --no-install-recommends -y gdal-bin libgdal-dev python3-gdal
 
 RUN groupadd -g 5000 oim
 RUN useradd -g 5000 -u 5000 oim -s /bin/bash -d /app
