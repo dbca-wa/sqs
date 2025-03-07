@@ -1,4 +1,4 @@
-Django==5.0.12
+Django==5.0.13
 GDAL==3.9.3
 #django-extensions==1.9.8
 django-extensions==3.2.3
