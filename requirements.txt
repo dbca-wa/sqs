@@ -71,7 +71,7 @@ git+https://github.com/dbca-wa/appmonitor_client.git#egg=appmonitor_client
 python-decouple==3.8
 
 #setuptools==69.0.3
-setuptools==72.0.0
+setuptools==78.1.1
 wheel==0.42.0
 idna==3.7
 pillow==10.3.0
