@@ -11,5 +11,6 @@
 		   "--hostname","sqs-dev"
 		   ],
 	"forwardPorts": [9131,9132,9133,9134,9135],
-	"initializeCommand" : "${localEnv:HOME}/docker-scripts-dev/windows_vbox/postgres_docker_load_2404.sh"
+	// "initializeCommand" : "${localEnv:HOME}/docker-scripts-dev/windows_vbox/postgres_docker_load.sh"
+	"initializeCommand" : "${localEnv:HOME}/docker-scripts-dev/windows_vbox/postgres_docker_load_2404_16.sh"
 }
