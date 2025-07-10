@@ -19,6 +19,7 @@ import gc
 from pathlib import Path
 from argparse import Namespace
 from geojsplit import cli as geojsplit_cli
+import ijson
 
 from sqs.components.gisquery.models import Layer, GeoJsonFile
 from sqs.exceptions import LayerProviderException
@@ -98,6 +99,7 @@ class LayerLoader():
         self.name = name
         #self.layers_to_update = layers_to_update
         #self.url = f'https://kaartdijin-boodja.dbca.wa.gov.au/api/catalogue/entries/{name}/layer/'
+        self.geojson_split_geometry_count = settings.GEOJSON_SPLIT_GEOMETRY_COUNT
         self.url = settings.KB_LAYER_URL.format(name)
         
     def retrieve_layer(self):
@@ -130,7 +132,115 @@ class LayerLoader():
             logger.error(err_msg)
             raise LayerProviderException(err_msg, code='file_layer_retrieve_error' )
 
+    def split_geojson_file_recursive(
+        self, filename, file_prefix=None, round=0, geometry_count=2000, preserve_file=None
+    ):
+        """
+        Splits a GeoJSON file into smaller files with a specified number of geometries.
+        If the resulting file is larger than the max size, it will recursively split it further.
+        """
+        if round > 30 or geometry_count <= 1:
+            logger.info(
+                f"Max split rounds reached for file {filename}. Skipping further splits."
+            )
+            return
+        try:
+            file_path = Path(filename)
+            file_size = Path(filename).stat().st_size/1024**2 # MB
+            if settings.MAX_GEOJSPLIT_SIZE!=0 and file_size > settings.MAX_GEOJSPLIT_SIZE:
+                args = Namespace(
+                    geojson=file_path,
+                    geometry_count=geometry_count,
+                    suffix_length=None,
+                    output=None,
+                    limit=None,
+                    verbose=False,
+                    dry_run=False,
+                )
+                logger.info(
+                    f"Splitting GeoJSON file {file_path} into smaller files with {geometry_count} geometries each."
+                )
+                geojsplit_cli.input_geojson(args=args)
+                if preserve_file is None:
+                    preserve_file = filename  # Default to the input filename
+                logger.info(f"GeoJSON file {file_path} split successfully.")
+                try:
+                    # file_path.unlink()
+                    # logger.info(f"Removed original file {file_path}")
+                    if file_path.resolve() != Path(preserve_file).resolve():
+                        file_path.unlink()
+                        logger.info(f"Removed original file {file_path}")
+                    else:
+                        logger.info(f"Preserved original file {file_path}")
+                except Exception as e:
+                    logger.error(f"Error removing original file {file_path}: {str(e)}")
+                    raise Exception(f"Error removing original file {file_path}: {str(e)}")
 
+                # directory
+                output_dir = file_path.parent
+                for file in output_dir.glob(
+                    "*.geojson" if file_prefix is None else f"{file_prefix}*.geojson"
+                ):
+                    if file.resolve() == Path(preserve_file).resolve():
+                        logger.info(f"Skipping preserved file in loop: {file.name}")
+                        continue
+                    file_size = file.stat().st_size
+                    file_size_str = (
+                        f"{file_size / (1024 * 1024):.2f} MB"
+                        if file_size > 1024 * 1024
+                        else f"{file_size / 1024:.2f} KB"
+                    )
+                    logger.info(f"Created split file: {file.name} ({file_size_str})")
+                    logger.info(f"File size: {file_size} for file {settings.MAX_GEOJSPLIT_SIZE}") 
+                    # rename
+                    if (
+                        settings.MAX_GEOJSPLIT_SIZE!=0
+                        and file_size/1024**2  > settings.MAX_GEOJSPLIT_SIZE
+                    ):
+                        suffix = file.suffix
+                        new_name = f"split_round_{round}_size_{geometry_count}_{file.stem.split('_')[-1]}"
+                        new_full_name = f"{new_name}{suffix}"
+                        logger.info(f"Renaming file {file.name} to {new_full_name}")
+                        os.rename(file, output_dir / f"{new_full_name}")
+
+                        geometry_count = math.ceil(geometry_count / 4)
+                        self.split_geojson_file_recursive(
+                            output_dir / new_full_name,
+                            new_name,
+                            round=round + 1,
+                            geometry_count=geometry_count,
+                            preserve_file=preserve_file,
+                        )
+                    else:
+                        file_rename = file.with_name(
+                            f"{file.stem}_round_{round}_size_{file_size_str}.geojson"
+                        )
+                        file.rename(file_rename)
+        except Exception as e:
+            err_msg = f"Error splitting geojson to smaller files\n{str(e)}"
+            logger.error(err_msg)
+
+
+    def split_geojson_files_from_file(self, filename):
+        ''' Util function to split large geojson file to smaller chunks with given no. of features
+            Egi. client usage:
+                geojsplit --geometry-count 10000 /path-to-geojson/CPT_DBCA_REGIONS.geojson
+        '''
+        try:
+            file_size = Path(filename).stat().st_size/1024**2 # MB
+            print('file size', file_size)
+            if settings.MAX_GEOJSPLIT_SIZE!=0 and file_size > settings.MAX_GEOJSPLIT_SIZE:
+                num_files = math.ceil(file_size/settings.MAX_GEOJSPLIT_SIZE)
+                geometry_count = 2000 # default value
+                logger.info('Geometry count %s', geometry_count)
+                args = Namespace(geojson=filename, geometry_count=geometry_count, suffix_length=None, output=None, limit=None, verbose=False, dry_run=False)
+                logger.info('args defined')
+                geojsplit_cli.input_geojson(args=args)
+        except Exception as e:
+            err_msg = f'Error splitting geojson to smaller files\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='file_layer_geojsplit_error' )
+        
     def split_geojson_files(self, filename, geojson):
         ''' Util function to split large geojson file to smaller chunks with given no. of features
             Egi. client usage:
@@ -141,16 +251,144 @@ class LayerLoader():
             if settings.MAX_GEOJSPLIT_SIZE!=0 and file_size > settings.MAX_GEOJSPLIT_SIZE:
                 num_files = math.ceil(file_size/settings.MAX_GEOJSPLIT_SIZE)
                 geometry_count = math.ceil(len(geojson['features'])/num_files)
-                args = Namespace(geojson=filename, geometry_count=geometry_count, suffix_length=None, output=None, limit=None, verbose=False, dry_run=False)
+                args = Namespace(geojson=filename, geometry_count=geometry_count, suffix_length=None, output=None, limit=None, verbose=True, dry_run=False)
                 geojsplit_cli.input_geojson(args=args)
         except Exception as e:
             err_msg = f'Error splitting geojson to smaller files\n{str(e)}'
             logger.error(err_msg)
             raise LayerProviderException(err_msg, code='file_layer_geojsplit_error' )
 
+    def retrieve_layer_to_file(self):
+        """ get GeoJSON from GeoServer
+        """
+        try:
+            #res = requests.get('{}'.format(self.url), auth=(settings.LEDGER_USER,settings.LEDGER_PASS), verify=None, timeout=settings.REQUEST_TIMEOUT)
+            # Stream large GeoJSON from GeoServer to file
+            with requests.get(
+                '{}'.format(self.url),
+                auth=(settings.LEDGER_USER, settings.LEDGER_PASS),
+                verify=False,
+                timeout=settings.REQUEST_TIMEOUT,
+                stream=True  # Critical: enables streaming mode
+            ) as res:
+                if res.status_code == 200:
+                    print(f"Downloading GeoJSON for layer {self.name} from {self.url} ...")
+                    dt_str = datetime.now().strftime(DATETIME_T_FMT)
+                    path=f'{settings.DATA_STORE}/{self.name}/{dt_str}'
+                    if not os.path.exists(path):
+                        os.makedirs(path)
+
+                    filename=f'{path}/{self.name}.geojson'
+                    with open(filename, 'wb') as f:
+                        for chunk in res.iter_content(chunk_size=8192):
+                            if chunk:  # Filter out keep-alive chunks
+                                f.write(chunk)
+                    print("GeoJSON successfully written to layer.geojson")
+                    return filename
+                else:
+                    res.raise_for_status()
+        except Exception as e:
+            err_msg = f'Error getting layer from API Request {self.name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='api_layer_retrieve_error' )
+
+       
+    def get_crs_from_file(self, filename):
+        import ijson 
+        try:
+            with open(filename, 'rb') as f:
+                parser = ijson.parse(f)
+                for prefix, event, value in parser:
+                    if prefix == 'crs.properties.name':
+                        code = value.split(':')[-1]  # Get '4283' from 'urn:ogc:def:crs::4283'
+                        return f"epsg:{code.lower()}"
+                print("No CRS field found. Assuming EPSG:4326 (WGS 84)")
+                return 'epsg:4326'
+        except Exception as e:
+            raise Exception(f"Cannot determine CRS from layer {self.name}: {e}")
+
+    
+    def convert_value(self,val):
+        from decimal import Decimal
+        from collections.abc import Iterable
+        if isinstance(val, Decimal):
+            return float(val)
+        elif isinstance(val, Iterable) and not isinstance(val, str):
+            return [self.convert_value(v) for v in val]
+        else:
+            return val
+    
+    def get_attr_values_stream(self, file_path):
+        # import ijson
+        from collections import defaultdict
+        attr_values = defaultdict(set)
+
+        with open(file_path, 'rb') as f:
+            objects = ijson.items(f, 'features.item.properties')
+            for props in objects:
+                for attr, val in props.items():
+                    attr_values[attr].add(val)
+
+        output = []
+        for attr, vals in attr_values.items():
+            cleaned = [self.convert_value(v) for v in vals]
+            cleaned_sorted = sorted(cleaned, key=lambda x: (str(type(x)), str(x)))
+            output.append({
+                "attribute": attr,
+                "values": cleaned_sorted
+            })
+
+        return output
+    
+    def load_layer(self, filename=None, geojson=None):
+
+        HelperUtils.force_gc()
+        layer = None
+        if self.name in settings.KB_EXCLUDE_LAYERS:
+            logger.info('Layer {self.name} is in EXCLUSION list. Layer not created/updated')
+            return layer
+
+        try:
+            if filename is None:
+                # get GeoJSON from file
+                logger.info('Retrieving layer from geoserver %s', filename)
+                filename = self.retrieve_layer_to_file()
+            logger.info('Getting crs from file: %s', filename)
+            crs = self.get_crs_from_file(filename)
+
+            qs_layer = Layer.objects.filter(name=self.name)
+            with transaction.atomic():
+                # Layer already saved to Geojson file so we need to split it to smaller files
+                logger.info('splitting layer to smaller files %s', filename)
+                # self.split_geojson_files_from_file(filename)
+                self.split_geojson_file_recursive(filename, geometry_count=self.geojson_split_geometry_count)
+
+                logger.info('Getting attribute values from files %s', filename)
+                attr_values =self.get_attr_values_stream(filename)
+
+                qs = Layer.objects.filter(name=self.name)
+                version = qs.aggregate(version_max=Max('version'))['version_max'] + 1 if qs else 0
+
+                logger.info('creating a layer object %s', filename)
+                layer, created = Layer.objects.update_or_create(
+                    name=self.name,
+                    defaults={'crs': crs, 'version': version, 'url': self.url, 'attr_values': attr_values},
+                )
+
+                geojson_file = GeoJsonFile.objects.create(layer=layer, geojson_file=filename)
+
+                msg = dict(status=HTTP_201_CREATED, data=f'Layer created/updated: {self.name}')
+                logger.info(msg)
+
+        except Exception as e: 
+            err_msg = f'Error getting layer from GeoServer {self.name} from:\n{self.url}\n{str(e)}'
+            logger.error(err_msg)
+            raise LayerProviderException(err_msg, code='load_layer_retrieve_error' )
+        
+        return  layer
 
     #def load_layer(self, filename=None, geojson=None, force_load=False):
-    def load_layer(self, filename=None, geojson=None):
+    def load_layer_orig(self, filename=None, geojson=None):
 
         def get_crs_from_geojson(geojson):
             try:
