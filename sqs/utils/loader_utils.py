@@ -191,7 +191,6 @@ class LayerLoader():
                         else f"{file_size / 1024:.2f} KB"
                     )
                     logger.info(f"Created split file: {file.name} ({file_size_str})")
-                    logger.info(f"File size: {file_size} for file {settings.MAX_GEOJSPLIT_SIZE}") 
                     # rename
                     if (
                         settings.MAX_GEOJSPLIT_SIZE!=0
