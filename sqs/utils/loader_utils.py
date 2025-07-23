@@ -326,8 +326,23 @@ class LayerLoader():
             objects = ijson.items(f, 'features.item.properties')
             for props in objects:
                 for attr, val in props.items():
-                    attr_values[attr].add(val)
-
+                    if not isinstance(attr, str):
+                        logger.warning(f'Non-string attribute key encountered: {attr} (type: {type(attr)}). Converting to string.')
+                        key = str(attr)
+                    else:
+                        key = attr
+                    if isinstance(val, list):
+                        logger.warning(f'List value encountered for attribute "{key}". Adding each element separately.')
+                        for v in val:
+                            attr_values[key].add(self.convert_value(v))
+                    else:
+                        attr_values[key].add(self.convert_value(val))
+                    # try:
+                    #     # attr_values[attr].add(val)
+                    #     attr_values[attr].add(self.convert_value(val))
+                    # except Exception as e:
+                    #     logger.error(f'Error processing attribute {attr} with value {val}: {e}')
+                    #     continue
         output = []
         for attr, vals in attr_values.items():
             cleaned = [self.convert_value(v) for v in vals]
