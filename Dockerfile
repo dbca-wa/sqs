@@ -22,7 +22,7 @@ ENV BPAY_ALLOWED=False
 RUN apt-get clean
 RUN apt-get update
 RUN apt-get upgrade -y
-RUN apt-get install --no-install-recommends -y ssh run-one software-properties-common
+RUN apt-get install --no-install-recommends -y ssh run-one software-properties-common g++
 
 # Install GDAL
 # RUN add-apt-repository ppa:ubuntugis/ubuntugis-unstable
