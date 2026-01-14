@@ -78,3 +78,5 @@ pillow==12.1.0
 sqlparse~=0.5.0
 ijson==2.6.1
 urllib3~=2.6.0
+
+legacy-cgi==2.6.4
