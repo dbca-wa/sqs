@@ -56,7 +56,7 @@ numpy==2.1.2
 cycler==0.11.0
 fonttools==4.55.2
 kiwisolver==1.4.5
-matplotlib==3.9.1
+matplotlib==3.10.8
 packaging==21.3
 pyparsing==3.0.7
 
