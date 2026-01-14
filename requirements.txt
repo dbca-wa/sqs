@@ -44,7 +44,7 @@ parso==0.8.4
 # rtree requires 'sudo apt install libspatialindex-dev'
 #geopandas==0.10.2
 geopandas==1.0.1
-shapely==2.0.5
+shapely==2.1.2
 #pyproj==3.6.0
 pandas==2.3.3
 python-dateutil==2.8.2
