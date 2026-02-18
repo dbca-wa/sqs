@@ -1,6 +1,7 @@
 import traceback
 import os
 import json
+import copy
 
 from sqs.utils.geoquery_utils import DisturbanceLayerQueryHelper
 from sqs.utils.schema_search  import SchemaSearch
@@ -44,7 +45,6 @@ class DisturbanceLayerQuery(object):
     def query(self):
         self.lq_helper.processed_questions = []
         self.lq_helper.unprocessed_questions = []
-
         prefill_data = self.prefill_obj.prefill_data_from_shape()
 
         res = dict(
@@ -92,17 +92,17 @@ class DisturbancePrefillData(object):
             extended_item_name = item['name']
         else:
             raise Exception(f'Missing name in item {item["label"]}. Possibly Question/Section not provided!')
-
         if 'children' not in item:
             if item['type'] ==CHECKBOX:
-                if sqs_value:
+                if sqs_value is not None:
                     for val in sqs_value:
-                        existing_value = self.search_schema.search_data(item['name'])
                         if val.casefold()==item['label'].casefold():
                             item_data[item['name']]='on'
-
-                        #elif existing_value is not None:
-                        #    item_data[item['name']] = existing_value
+                            break
+                else:
+                    existing_value = self.search_schema.search_data(item['name'])
+                    if existing_value is not None:
+                        item_data[item['name']] = existing_value
 
             elif item['type'] == 'file':
                 #print('file item', item)
@@ -195,7 +195,7 @@ class DisturbancePrefillData(object):
             if 'repetition' in item:
                 item_data = self.generate_item_data_shape(extended_item_name,item,item_data,1,suffix)
             else:
-                #Check if item has checkbox childer
+                #Check if item has checkbox children
                 if self.check_checkbox_item(extended_item_name, item, item_data,1,suffix):
                     #make a call to sqs for item
                     # 1. question      --> item['label']
@@ -209,14 +209,17 @@ class DisturbancePrefillData(object):
                         self._update_assessor_info(item, sqs_dict)
                         item_layer_data = self._update_layer_info(sqs_dict)
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix, sqs_values)
-
+                        
                         existing_values_dict = self.search_schema.search_data(item['name'], checkbox=True)
                         if existing_values_dict:
                             # append SQS response values to existing values.
                             # SQS response query values will overwrite existing values, in case of duplicates
                             sqs_values_dict = item_data[item['name']][0]
                             existing_values_dict.update(sqs_values_dict) 
-                            item_data[item['name']] = [existing_values_dict] 
+                            item_data[item['name']] = [existing_values_dict]
+                    else:
+                        # No SQS result provided: rebuild from existing values so checkbox conditions evaluate
+                        item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
 
                 else:
                     item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
