@@ -170,6 +170,30 @@ class DisturbanceLayerQueryHelper():
 
         return overlay_gdf
 
+    def get_overlay_gdf_generator(self, layer_gdf_gen, shapefile_gdf, how, column_name, layer_name=''):
+        '''
+        Build overlay results from a layer generator one chunk at a time.
+        This avoids loading the full layer into memory before overlaying.
+        '''
+        overlay_chunks = []
+        overlay_template = None
+
+        for idx, split_file, layer_gdf in layer_gdf_gen:
+            logger.info(f'[CHUNKED_LAYER_PATH] layer={layer_name} split_file={split_file} idx={idx}')
+            print_system_memory_stats(f'Processing split layer chunk {split_file}')
+            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+            if overlay_template is None:
+                overlay_template = overlay_gdf.iloc[0:0].copy()
+            if not overlay_gdf.empty:
+                overlay_chunks.append(overlay_gdf)
+
+            HelperUtils.force_gc([layer_gdf, overlay_gdf])
+
+        if overlay_chunks:
+            return gpd.GeoDataFrame(pd.concat(overlay_chunks, ignore_index=True), crs=shapefile_gdf.crs)
+
+        return overlay_template if overlay_template is not None else gpd.GeoDataFrame()
+
     def spatial_join_gbq(self, question, widget_type):
         '''
         Process new Question (grouping by like-questions) and results stored in cache 
@@ -227,13 +251,21 @@ class DisturbanceLayerQueryHelper():
 
                         print_system_memory_stats(f'Ready to load layer {layer_name}')
                         layer_provider = DbLayerProvider(layer_name, url=layer_url)
-                        layer_info, layer_gdf = layer_provider.get_layer()
-
-                        mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
-                        print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
-
-                        shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
-                        overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+                        #layer_info, layer_gdf = layer_provider.get_layer()
+                        #mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
+                        #print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
+                        #overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+                        if settings.USE_LAYER_SPLIT_FILES:
+                            layer_info, layer_gdf_gen = layer_provider.get_layer_generator()
+                            shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
+                            overlay_gdf = self.get_overlay_gdf_generator(layer_gdf_gen, shapefile_gdf, how, column_name, layer_name=layer_name)
+                            layer_gdf = None
+                        else:
+                            layer_info, layer_gdf = layer_provider.get_layer()
+                            shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
+                            mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
+                            print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
+                            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
 
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
                         operator_result  = op.answer_prefix('proponent_items') + unique_list(op.operator_result())
@@ -664,6 +696,11 @@ class PointQueryHelper():
         point_gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude), crs=settings.CRS)
 
         overlay_res = gpd.sjoin(point_gdf, layer_gdf, predicate=predicate)
+        #if settings.USE_LAYER_SPLIT_FILES:
+        #    overlay_res = layer.spatial_join_split(point_gdf, predicate=predicate)
+        #else:
+        #    layer_gdf = layer.to_gdf(all_features=True)
+        #    overlay_res = gpd.sjoin(point_gdf, layer_gdf, predicate=predicate)
 
         attrs_exist = all(item in overlay_res.columns for item in self.layer_attrs)
 

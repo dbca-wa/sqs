@@ -675,16 +675,27 @@ class DbLayerProvider():
 
     def get_layer_generator(self):
         '''
-        Return generator to load geojson from filesystem in batches/parts
+        Return generator to load layer data in batches/parts.
         '''
-          
         try:
-            layer = Layer.objects.get(name=self.layer_name)
-            if self.exclude_layer(layer):
-                return None, None 
+            if Layer.objects.filter(name=self.layer_name).exists():
+                layer = Layer.objects.get(name=self.layer_name)
+            else:
+                loader = LayerLoader(name=self.layer_name)
+                layer = loader.load_layer()
 
-            #layer_gdf = layer.to_gdf
-            layer_gen = layer.geojson_generator()
+            if self.exclude_layer(layer):
+                return None, None
+
+            #layer_gen = layer.geojson_generator()
+            if settings.USE_LAYER_SPLIT_FILES:
+                layer_gen = layer.to_gdf_split_generator()
+            else:
+                def single_layer_generator():
+                    layer_gdf = layer.to_gdf(all_features=True)
+                    yield 0, Path(layer.geojson_file.path).name, layer_gdf
+
+                layer_gen = single_layer_generator()
 
             layer_info = self.layer_info(layer)
             #self.set_cache(layer_info, layer_gdf)
