@@ -260,6 +260,70 @@ class Layer(RevisionedMixin):
         return gdf
 
     @traceback_exception_handler
+    def to_gdf_split_generator(self):
+        start = time.time()
+        '''
+        Yield GeoDataFrames from split geojson files one file at a time.
+        Falls back to the original geojson file if split files do not exist.
+
+        Usage:
+            for idx, split_file, gdf in layer.to_gdf_split_generator():
+                # process gdf and discard it before the next iteration
+                pass
+        '''
+        geojson_path = Path(self.geojson_file.path)
+        if not geojson_path.is_file():
+            raise Exception(f'File for layer {self.name} Not Found: {self.geojson_file.path}')
+
+        path = geojson_path.parent
+        filename = geojson_path.name
+        split_files = [
+            item.name for item in path.iterdir()
+            if item.is_file() and item.name != filename and item.suffix.lower() == '.geojson'
+        ]
+        if not split_files:
+            # use the original (unsplit) file
+            split_files = [filename]
+
+        split_files.sort()
+        for idx, split_file in enumerate(split_files):
+            split_path = path / split_file
+            gdf = gpd.read_file(split_path)
+            gdf.set_crs(self.crs, inplace=True, allow_override=True)
+            logger.info(f'{idx} - {split_file}')
+            yield idx, split_file, gdf
+            HelperUtils.force_gc(gdf)
+
+        HelperUtils.log_elapsed_time(start, 'to_gdf_split_generator()')
+
+    @traceback_exception_handler
+    def spatial_join_split(self, query_gdf, predicate='intersects'):
+        start = time.time()
+        '''
+        Spatially join a query GeoDataFrame against split geojson files one file at a time.
+        This avoids loading the entire layer into memory before performing the join.
+        '''
+        if query_gdf is None or query_gdf.empty:
+            return gpd.GeoDataFrame()
+
+        result_chunks = []
+        for idx, split_file, layer_gdf in self.to_gdf_split_generator():
+            overlay_res = gpd.sjoin(query_gdf, layer_gdf, predicate=predicate)
+            logger.info(f'{idx} - spatial join complete for {split_file}')
+            if not overlay_res.empty:
+                result_chunks.append(overlay_res)
+
+            HelperUtils.force_gc([layer_gdf, overlay_res])
+
+        if result_chunks:
+            result_gdf = gpd.GeoDataFrame(pd.concat(result_chunks, ignore_index=True), crs=query_gdf.crs)
+        else:
+            result_gdf = gpd.GeoDataFrame(geometry=[], crs=query_gdf.crs)
+
+        HelperUtils.log_elapsed_time(start, 'spatial_join_split()')
+        return result_gdf
+
+    @traceback_exception_handler
     def to_gdf(self, all_features=False):
         start = time.time()
         if not Path(self.geojson_file.path).is_file():
