@@ -12,13 +12,13 @@ from django.views.generic import TemplateView
 
 from django.conf.urls.static import static
 from rest_framework import routers
-from rest_framework_swagger.views import get_swagger_view
+#from rest_framework_swagger.views import get_swagger_view
 from sqs import views
 from sqs.components.gisquery import api as gisquery_api
 from sqs.components.gisquery import views as gisquery_views
 #from ledger_api_client.urls import urlpatterns as ledger_patterns
 
-schema_view = get_swagger_view(title='SQS API')
+#schema_view = get_swagger_view(title='SQS API')
 
 # API patterns
 router = routers.DefaultRouter()
