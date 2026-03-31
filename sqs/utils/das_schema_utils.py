@@ -84,7 +84,6 @@ class DisturbancePrefillData(object):
         return [self.data]
 
     def _populate_data_from_item(self, item, repetition, suffix, sqs_value=None):
-
         item_data = {}
         sqs_dict = None
 
@@ -207,16 +206,16 @@ class DisturbancePrefillData(object):
                     sqs_values = sqs_dict.get('result')
                     if sqs_values:
                         self._update_assessor_info(item, sqs_dict)
-                        item_layer_data = self._update_layer_info(sqs_dict)
+                        self._update_layer_info(sqs_dict)
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix, sqs_values)
                         
-                        existing_values_dict = self.search_schema.search_data(item['name'], checkbox=True)
-                        if existing_values_dict:
-                            # append SQS response values to existing values.
-                            # SQS response query values will overwrite existing values, in case of duplicates
-                            sqs_values_dict = item_data[item['name']][0]
-                            existing_values_dict.update(sqs_values_dict) 
-                            item_data[item['name']] = [existing_values_dict]
+                        # existing_values_dict = self.search_schema.search_data(item['name'], checkbox=True)
+                        # if existing_values_dict:
+                        #     # append SQS response values to existing values.
+                        #     # SQS response query values will overwrite existing values, in case of duplicates
+                        #     sqs_values_dict = item_data[item['name']][0]
+                        #     existing_values_dict.update(sqs_values_dict)
+                        #     item_data[item['name']] = [existing_values_dict]
                     else:
                         # No SQS result provided: rebuild from existing values so checkbox conditions evaluate
                         item_data = self.generate_item_data_shape(extended_item_name, item, item_data,1,suffix)
