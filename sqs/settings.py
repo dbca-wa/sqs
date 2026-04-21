@@ -386,3 +386,4 @@ CSRF_TRUSTED_ORIGINS = json.loads(str(CSRF_TRUSTED_ORIGINS_STRING))
 # (_save method of FileSystemStorage class)
 # As it causes a permission exception when using azure network drives
 FILE_UPLOAD_PERMISSIONS = None
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 50  # 15M
