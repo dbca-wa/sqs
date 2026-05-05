@@ -255,6 +255,7 @@ class DisturbanceLayerQueryHelper():
                         #mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
                         #print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
                         #overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+                        logger.info(f'USE_LAYER_SPLIT_FILES: {settings.USE_LAYER_SPLIT_FILES}')
                         if settings.USE_LAYER_SPLIT_FILES:
                             layer_info, layer_gdf_gen = layer_provider.get_layer_generator()
                             shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
@@ -263,8 +264,8 @@ class DisturbanceLayerQueryHelper():
                         else:
                             layer_info, layer_gdf = layer_provider.get_layer()
                             shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
-                            mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
-                            print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
+                            # mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
+                            # print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
                             overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
 
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
