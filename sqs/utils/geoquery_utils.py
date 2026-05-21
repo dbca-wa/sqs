@@ -269,9 +269,20 @@ class DisturbanceLayerQueryHelper():
                             overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
 
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
-                        operator_result  = op.answer_prefix('proponent_items') + unique_list(op.operator_result())
-                        proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(op.proponent_answer()))
-                        assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(op.assessor_answer()))
+                        # Existing behavior kept for reference (prefix was always added, even for empty spatial results):
+                        # operator_result  = op.answer_prefix('proponent_items') + unique_list(op.operator_result())
+                        # proponent_answer = to_str(op.answer_prefix('proponent_items') + unique_list(op.proponent_answer()))
+                        # assessor_answer  = to_str(op.answer_prefix('assessor_items') + unique_list(op.assessor_answer()))
+
+                        # Only include prefixes when there is at least one real result row.
+                        # This prevents prefix-only responses from being treated as a valid intersection result.
+                        operator_values = unique_list(op.operator_result())
+                        proponent_values = unique_list(op.proponent_answer())
+                        assessor_values = unique_list(op.assessor_answer())
+
+                        operator_result = op.answer_prefix('proponent_items') + operator_values if operator_values else []
+                        proponent_answer = to_str(op.answer_prefix('proponent_items') + proponent_values) if proponent_values else ''
+                        assessor_answer = to_str(op.answer_prefix('assessor_items') + assessor_values) if assessor_values else ''
 
                         logger.info(f'Operator Result: {operator_result}'[:200])
                         condition = f'{column_name} -- {operator}'
@@ -616,6 +627,10 @@ class DisturbanceLayerQueryHelper():
                     details = layer.pop('layer_details', None)
                     label = layer['proponent_answer'] if layer['proponent_answer'] else None
                     assessor_info = layer['assessor_answer']
+
+                    # Only aggregate layer metadata when this layer produced operator/intersection results, mainly for text/textarea widget
+                    if not layer.get('operator_response'):
+                        continue
 
                     proponent_resp_agg += layer['proponent_answer'] + "\n\n"
                     assessor_resp_agg += layer['assessor_answer'] + "\n\n"
