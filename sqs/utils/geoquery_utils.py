@@ -288,7 +288,6 @@ class DisturbanceLayerQueryHelper():
                         condition = f'{column_name} -- {operator}'
                         if operator != 'IsNotNull':
                             condition += f' -- {value}'
-
                         res = dict(
                                 visible_to_proponent=layer['visible_to_proponent'],
                                 layer_details = dict(**layer_info,
@@ -413,13 +412,36 @@ class DisturbanceLayerQueryHelper():
                         if label.casefold() == question['answer'].casefold() and len(layer['operator_response'])>0:
 
                             raw_data = layer
-                            details = raw_data.pop('layer_details', None)
+                            # details = raw_data.pop('layer_details', None)
+                            # to avoid missing the original layer details when pop() mutates the layer dict, we use get() instead to read layer_details without mutating the original dict.
+                            details = raw_data.get('layer_details', None)
 
+                            # Returned immediately with only the single matching layer's details,
+                            # meaning layer_name in details reflected only one layer even when multiple
                             response =  dict(
                                 result=label,
                                 assessor_info=[],
                                 layer_details=[dict(name=schema_section, label=value, details=details, question=question)],
                             )
+
+                            # this was the first solution tried to aggregate all matched layers for the question for showing all the intersected layers in the UI but now done in frontend as we were already getting layer_details in dict.
+                            # Override details['layer_name'] with the aggregated list
+                            # instead of only the single matched layer's name.
+                            # Aggregate first, before mutating the matched layer with pop().
+                            # If we pop first, the current layer may lose layer_details and be excluded.
+                            # layer_name_agg = list(set([
+                            #     lyr['layer_details']['layer_name']
+                            #     for lyr in question['layers']
+                            #     if lyr.get('operator_response') and lyr.get('layer_details')
+                            # ]))
+                            # if not layer_name_agg and details and details.get('layer_name'):
+                            #     layer_name_agg = [details.get('layer_name')]
+                            # details_with_agg = dict(details, layer_name=layer_name_agg) if details else {'layer_name': layer_name_agg}
+                            # response = dict(
+                            #     result=label,
+                            #     assessor_info=[],
+                            #     layer_details=[dict(name=schema_section, label=value, details=details_with_agg, question=question)],
+                            # )
 
                             return response
                         else:
@@ -463,7 +485,9 @@ class DisturbanceLayerQueryHelper():
                             result.append(label) # result is in an array list 
                             #raw_data = question
                             raw_data = layer
-                            details = raw_data.pop('layer_details', None)
+                            # details = raw_data.pop('layer_details', None)
+                            # to avoid missing the original layer details when pop() mutates the layer dict, we use get() instead to read layer_details without mutating the original dict.
+                            details = raw_data.get('layer_details', None)
                             # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
                             layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
                         else:
@@ -516,7 +540,9 @@ class DisturbanceLayerQueryHelper():
 
                     #raw_data = question
                     raw_data = layer
-                    details = raw_data.pop('layer_details', None)
+                    # details = raw_data.pop('layer_details', None)
+                    # to avoid missing the original layer details when pop() mutates the layer dict, we use get() instead to read layer_details without mutating the original dict.
+                    details = raw_data.get('layer_details', None) 
                     if len(labels_found)>0:
                         result = labels_found[0] # return the first one found
                         response =  dict(
@@ -569,7 +595,9 @@ class DisturbanceLayerQueryHelper():
                     labels_found.sort()
 
                     raw_data = layer
-                    details = raw_data.pop('layer_details', None)
+                    # details = raw_data.pop('layer_details', None)
+                    # to avoid missing the original layer details when pop() mutates the layer dict, we use get() instead to read layer_details without mutating the original dict.
+                    details = raw_data.get('layer_details', None)
                     if labels_found:
                         result = list(set(labels_found))
                         response =  dict(
@@ -624,15 +652,15 @@ class DisturbanceLayerQueryHelper():
             for idx, question in enumerate(processed_questions):
                 layer_details = []
                 for layer in question['layers']:
+                    # keep the pop here as its not affecting the original question/layer dict used for iteration
                     details = layer.pop('layer_details', None)
                     label = layer['proponent_answer'] if layer['proponent_answer'] else None
                     assessor_info = layer['assessor_answer']
 
-                    # Only aggregate layer metadata when this layer produced operator/intersection results, mainly for text/textarea widget
-                    if not layer.get('operator_response'):
-                        continue
-
-                    proponent_resp_agg += layer['proponent_answer'] + "\n\n"
+                    # proponent_resp_agg += layer['proponent_answer'] + "\n\n"
+                    # to avoid aggregating empty proponent answers, only aggregate when there is an operator response
+                    if layer.get('operator_response'):
+                        proponent_resp_agg += layer['proponent_answer'] + "\n\n"
                     assessor_resp_agg += layer['assessor_answer'] + "\n\n"
 
                     #print(layer)
