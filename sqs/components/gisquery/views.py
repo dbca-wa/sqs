@@ -152,7 +152,45 @@ class DisturbanceLayerQueueView(View):
 
         try:
             HelperUtils.log_request(f'{request.user} - {self.__class__.__name__}.{inspect.currentframe().f_code.co_name} - {request.get_full_path()}')
-            data = json.loads(request.POST['data'])
+            
+            # data = json.loads(request.POST['data'])
+            # adding this request chunking logic to handle large requests that exceed max request size limit (e.g. 10MB)
+            # add this REQUEST_CHUNK=True only for das-seg at the moment as not done for das-prod
+            if settings.REQUEST_CHUNK:
+                request_id = request.POST.get("request_id")
+                chunk = request.POST.get("chunk")
+                chunk_index = int(request.POST.get("chunk_index"))
+                total_chunks = int(request.POST.get("total_chunks"))
+
+                if None in (request_id, chunk, chunk_index, total_chunks):
+                    return Response({"error": "Request_id, chunk, chunk_index, total_chunks are required"}, status=400)
+
+                # Store received chunks in a cache with a unique key based on request_id
+                cache_key = f"{request_id}_chunks"
+                chunks = cache.get(cache_key)
+                if chunks is None:
+                    chunks = {}
+                # Store chunk in cache with its index
+                chunks[chunk_index] = chunk
+                cache.set(cache_key, chunks, timeout=3600)
+
+                # Process only when all chunks are received(available); otherwise return and wait.
+                if len(chunks) != total_chunks:
+                    return JsonResponse(
+                        status=status.HTTP_202_ACCEPTED,
+                        data={"message": f"Chunk received ({len(chunks)}/{total_chunks})"},
+                    )
+                
+                try:
+                    # combine chunks and parse JSON
+                    full_data = "".join(chunks[i] for i in range(total_chunks))
+                    data = json.loads(full_data)
+                    cache.delete(cache_key)
+                except Exception as e:
+                    cache.delete(cache_key)
+                    return JsonResponse(status=status.HTTP_500_INTERNAL_SERVER_ERROR, data={"error": str(e)})
+            else:
+                data = json.loads(request.POST['data'])
 
             proposal = data.get('proposal')
             current_ts = proposal.get('current_ts') # only available following subsequent Prefill requests

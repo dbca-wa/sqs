@@ -387,3 +387,5 @@ CSRF_TRUSTED_ORIGINS = json.loads(str(CSRF_TRUSTED_ORIGINS_STRING))
 # As it causes a permission exception when using azure network drives
 FILE_UPLOAD_PERMISSIONS = None
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 50  # 15M
+# temporarily add this variable for das-seg chunking request logic, to be removed later when the logic is refactored to not rely on this variable
+REQUEST_CHUNK = env('REQUEST_CHUNK', False)
