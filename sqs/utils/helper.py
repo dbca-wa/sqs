@@ -2,6 +2,7 @@ from collections import OrderedDict
 import json
 import fnmatch
 import geopandas as gpd
+import pandas as pd
 
 from sqs.utils import (
     HelperUtils,
@@ -65,7 +66,8 @@ class DefaultOperator():
             self.row_filter contains row indexes of overlay_gdf that match the operator_compare criteria
             Returns --> gdf
         '''
-        overlay_result = []
+        # overlay_result = []
+        overlay_result_df = pd.DataFrame() if isinstance(column_names, list) else pd.Series(dtype=object)
         try:
             overlay_gdf = self.overlay_gdf.iloc[self.row_filter,:] if self.row_filter is not None else self.overlay_gdf
             overlay_result_df = overlay_gdf[column_names]
@@ -111,6 +113,11 @@ class DefaultOperator():
             # get index positions of found results in ORIG overlay_result list
             return [overlay_result_lower.index(x) for x in overlay_result_match]
 
+
+        overlay_result = []
+        column_name = None
+        operator = None
+        value = None
 
         try:
 

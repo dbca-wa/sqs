@@ -44,16 +44,19 @@ class HelperUtils():
         '''
         helper to clear strings from list for layer_gdf (geoDataFrame) Exception output
         '''
-        if 'id' in _list:
-            _list.remove('id')
+        # if 'id' in _list:
+        #     _list.remove('id')
 
-        if 'md5_rowhash' in _list:
-            _list.remove('md5_rowhash')
+        # if 'md5_rowhash' in _list:
+        #     _list.remove('md5_rowhash')
 
-        if 'geometry' in _list:
-            _list.remove('geometry')
+        # if 'geometry' in _list:
+        #     _list.remove('geometry')
 
-        return _list
+        # return _list
+        values = list(_list)
+        excluded = {'id', 'md5_rowhash', 'geometry'}
+        return [item for item in values if item not in excluded]
 
     @classmethod 
     @traceback_exception_handler
