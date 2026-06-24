@@ -148,7 +148,7 @@ class DisturbanceLayerQueryHelper():
         )
         return self.metrics
 
-    def get_overlay_gdf(self, layer_gdf, shapefile_gdf, how, column_name):
+    def get_overlay_gdf(self, layer_gdf, shapefile_gdf, how, column_name, layer_name=''):
         ''' how = ['intersection','symmetric_difference','difference']
         '''
 
@@ -163,7 +163,8 @@ class DisturbanceLayerQueryHelper():
             diff_gdf = layer_gdf.overlay(shapefile_gdf[['geometry']], how='difference', keep_geom_type=False)
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( diff_gdf[column_name].unique() )]
 
-        if column_name not in overlay_gdf.columns:
+        #if column_name not in overlay_gdf.columns:
+        if not overlay_gdf.empty and column_name not in overlay_gdf.columns:
             _list = HelperUtils.pop_list(overlay_gdf.columns.to_list())
             error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
             logger.error(error_msg)
@@ -181,7 +182,7 @@ class DisturbanceLayerQueryHelper():
         for idx, split_file, layer_gdf in layer_gdf_gen:
             logger.info(f'[CHUNKED_LAYER_PATH] layer={layer_name} split_file={split_file} idx={idx}')
             print_system_memory_stats(f'Processing split layer chunk {split_file}')
-            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name, layer_name)
             if overlay_template is None:
                 overlay_template = overlay_gdf.iloc[0:0].copy()
             if not overlay_gdf.empty:
@@ -266,7 +267,7 @@ class DisturbanceLayerQueryHelper():
                             shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
                             # mem_usage = round(float(layer_gdf.memory_usage(index=True).sum()/1024**2), 2)
                             # print_system_memory_stats(f'{layer_name}, gdf mem_usage {mem_usage} MB')
-                            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
+                            overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name, layer_name)
 
                         op = DefaultOperator(layer, overlay_gdf, widget_type)
                         # Existing behavior kept for reference (prefix was always added, even for empty spatial results):
