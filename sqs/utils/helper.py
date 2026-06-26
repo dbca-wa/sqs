@@ -153,11 +153,29 @@ class DefaultOperator():
                     self.row_filter = [idx for idx,x in enumerate(overlay_result) if x < float(value)]
 
                 elif operator == EQUALS:
+                    # Old behavior (kept for reference):
+                    # if value_type != TEXT:
+                    #     # cast to INTs then compare (ignore decimals in comparison). int(x) will truncate x.
+                    #     self.row_filter = [idx for idx,x in enumerate(overlay_result) if int(float(x))==int(float(value))]
+                    # else:
+                    #     # comparing strings
+                    #     self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
+
                     if value_type != TEXT:
-                        # cast to INTs then compare (ignore decimals in comparison). int(x) will truncate x.
-                        self.row_filter = [idx for idx,x in enumerate(overlay_result) if int(float(x))==int(float(value))]
+                        # Mixed columns (e.g. 'T' plus numeric codes) should not fail the whole comparison.
+                        # Compare numerically only where both sides can be cast.
+                        value_num = float(value)
+                        matched_idxs = []
+                        for idx, x in enumerate(overlay_result):
+                            try:
+                                if float(x) == value_num:
+                                    matched_idxs.append(idx)
+                            except (TypeError, ValueError):
+                                # Skip non-numeric values (e.g. 'T') when testing numeric equals.
+                                continue
+                        self.row_filter = matched_idxs
                     else:
-                        # comparing strings
+                        # comparing strings (case-insensitive)
                         self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).lower().strip()==value.lower().strip()]
 
                 elif operator == CONTAINS:
