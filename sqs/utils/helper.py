@@ -102,16 +102,27 @@ class DefaultOperator():
         '''
 
         def get_filtered_idxs(pattern):
-            overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
+            # overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
+            # #pattern = '*' + value.lower().strip().strip('*') + '*'
+            # overlay_result_match = fnmatch.filter(overlay_result_lower, pattern)
+            #
+            # if NOT_DIFFERENCE:
+            #     # Contains NOT
+            #     overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
+            #
+            # # get index positions of found results in ORIG overlay_result list
+            # return [overlay_result_lower.index(x) for x in overlay_result_match]
+
+            overlay_result_lower = [str(x).lower() for x in overlay_result]
             #pattern = '*' + value.lower().strip().strip('*') + '*'
-            overlay_result_match = fnmatch.filter(overlay_result_lower, pattern)
+            overlay_result_match = set(fnmatch.filter(overlay_result_lower, pattern))
 
             if NOT_DIFFERENCE:
                 # Contains NOT
-                overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
+                return [idx for idx, x in enumerate(overlay_result_lower) if x not in overlay_result_match]
 
-            # get index positions of found results in ORIG overlay_result list
-            return [overlay_result_lower.index(x) for x in overlay_result_match]
+            # Preserve row order and repeated matches instead of collapsing to unique values.
+            return [idx for idx, x in enumerate(overlay_result_lower) if x in overlay_result_match]
 
 
         overlay_result = []
@@ -120,6 +131,14 @@ class DefaultOperator():
         value = None
 
         try:
+
+            # NOT_DIFFERENCE = False
+            # column_name   = self.layer.get('column_name')
+            # operator   = self.layer.get('operator')
+            # value      = str(self.layer.get('value'))
+            # if value.startswith('!'):
+            #     value = value.strip('!')
+            #     NOT_DIFFERENCE = True
 
             NOT_DIFFERENCE = False
             column_name   = self.layer.get('column_name')
@@ -187,16 +206,26 @@ class DefaultOperator():
                     self.row_filter = get_filtered_idxs(pattern)
 
                 elif operator == OR:
-                    overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
-                    values_list = list(map(lambda x: str(x).lower().strip(), value.split('|')))
-                    overlay_result_match = list(set(overlay_result_lower).intersection(values_list))
+                    # overlay_result_lower = list(map(lambda x: str(x).lower(), overlay_result))
+                    # values_list = list(map(lambda x: str(x).lower().strip(), value.split('|')))
+                    # overlay_result_match = list(set(overlay_result_lower).intersection(values_list))
+                    #
+                    # if NOT_DIFFERENCE:
+                    #     # OR NOT
+                    #     overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
+                    #
+                    # # get index positions of found results in ORIG overlay_result list
+                    # self.row_filter = [overlay_result_lower.index(x) for x in overlay_result_match]
+
+                    overlay_result_lower = [str(x).lower() for x in overlay_result]
+                    values_list = {str(x).lower().strip() for x in value.split('|')}
 
                     if NOT_DIFFERENCE:
                         # OR NOT
-                        overlay_result_match = list(set(overlay_result_lower).difference(overlay_result_match))
-
-                    # get index positions of found results in ORIG overlay_result list
-                    self.row_filter = [overlay_result_lower.index(x) for x in overlay_result_match]
+                        self.row_filter = [idx for idx, x in enumerate(overlay_result_lower) if x not in values_list]
+                    else:
+                        # Preserve row order and repeated matches instead of collapsing to unique values.
+                        self.row_filter = [idx for idx, x in enumerate(overlay_result_lower) if x in values_list]
 
             return self.row_filter
         except ValueError as e:
