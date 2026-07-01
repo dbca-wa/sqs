@@ -1,6 +1,12 @@
 # Prepare the base environment.
+ARG IMAGE_TAG
+ARG IMAGE_NAME
 FROM ghcr.io/dbca-wa/docker-apps-dev:ubuntu_2510_base_python AS builder_base_sqs
-
+ARG IMAGE_TAG
+ARG IMAGE_NAME
+RUN echo "Building version: $IMAGE_TAG for $IMAGE_NAME"
+ENV CONTAINER_IMAGE_TAG=${IMAGE_TAG}
+ENV CONTAINER_IMAGE_NAME=${IMAGE_NAME}
 LABEL maintainer="asi@dbca.wa.gov.au"
 LABEL org.opencontainers.image.source="https://github.com/dbca-wa/sqs"
 
