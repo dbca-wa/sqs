@@ -24,6 +24,8 @@ ENV SITE_PREFIX='sqs-dev'
 ENV SITE_DOMAIN='dbca.wa.gov.au'
 ENV OSCAR_SHOP_NAME='Parks & Wildlife'
 ENV BPAY_ALLOWED=False
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH=$VIRTUAL_ENV/bin:$PATH
 
 RUN apt-get clean
 RUN apt-get update
@@ -54,7 +56,7 @@ FROM builder_base_sqs AS python_libs_sqs
 
 WORKDIR /app
 USER oim
-RUN virtualenv /app/venv
+RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH=/app/venv/bin:$PATH
 COPY --chown=oim:oim requirements.txt ./
 
