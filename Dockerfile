@@ -60,8 +60,8 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH=/app/venv/bin:$PATH
 COPY --chown=oim:oim requirements.txt ./
 
-RUN pip3 install --upgrade pip && \
-    pip3 install --no-cache-dir -r requirements.txt 
+RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
+RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir -r requirements.txt  
 
 # Install the project (ensure that frontend projects have been built prior to this step).
 FROM python_libs_sqs
