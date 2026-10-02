@@ -1,3 +1,17 @@
+"""Remove obsolete timestamped layer data and its GeoJsonFile metadata.
+
+For each selected layer, retain the newest ``--keep-versions`` directories
+that have database records pointing to existing files, along with every
+timestamped directory newer than ``--min-age-days``. Older eligible
+directories are reported only by default. With ``--apply``, their GeoJsonFile
+records are deleted before the directories themselves.
+
+Cleanup is stopped if ``update_layers`` is running, and layers used by an
+identifiable active prefill/refresh task are skipped. Layers without a valid
+database-backed version are also skipped to avoid deleting data when the
+current version cannot be established.
+"""
+
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
