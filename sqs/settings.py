@@ -54,7 +54,8 @@ CHECK_IP = env('CHECK_IP', True)
 
 # Use 'epsg:4326' as projected coordinate system - 'epcg:4326' coordinate system is in meters (Then the buffer distance will be in meters)
 CRS = env('CRS', 'epsg:4326')
-CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
+# CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:3043')
+CRS_CARTESIAN = env('CRS_CARTESIAN', 'epsg:9473')
 #GEOM_AREA_LENGTH_FILTER = env('GEOM_AREA_LENGTH_FILTER', 1)
 DEFAULT_BUFFER = env('DEFAULT_BUFFER', -1) # reduce the polygon perimeter - in meters
 MAX_GEOJSON_SIZE = env('MAX_GEOJSON_SIZE', None) # MB
