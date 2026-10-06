@@ -1,6 +1,12 @@
 # Prepare the base environment.
-FROM ghcr.io/dbca-wa/docker-apps-dev:ubuntu_2510_base_python AS builder_base_sqs
-
+ARG IMAGE_TAG
+ARG IMAGE_NAME
+FROM ghcr.io/dbca-wa/docker-apps-dev:ubuntu_2604_base_python AS builder_base_sqs
+ARG IMAGE_TAG
+ARG IMAGE_NAME
+RUN echo "Building version: $IMAGE_TAG for $IMAGE_NAME"
+ENV CONTAINER_IMAGE_TAG=${IMAGE_TAG}
+ENV CONTAINER_IMAGE_NAME=${IMAGE_NAME}
 LABEL maintainer="asi@dbca.wa.gov.au"
 LABEL org.opencontainers.image.source="https://github.com/dbca-wa/sqs"
 
@@ -18,10 +24,13 @@ ENV SITE_PREFIX='sqs-dev'
 ENV SITE_DOMAIN='dbca.wa.gov.au'
 ENV OSCAR_SHOP_NAME='Parks & Wildlife'
 ENV BPAY_ALLOWED=False
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH=$VIRTUAL_ENV/bin:$PATH
 
 RUN apt-get clean
 RUN apt-get update
 RUN apt-get upgrade -y
+RUN apt-get install -y run-one
 RUN apt-get install --no-install-recommends -y ssh run-one software-properties-common g++
 
 # Install GDAL
@@ -47,12 +56,12 @@ FROM builder_base_sqs AS python_libs_sqs
 
 WORKDIR /app
 USER oim
-RUN virtualenv /app/venv
+RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH=/app/venv/bin:$PATH
 COPY --chown=oim:oim requirements.txt ./
 
-RUN pip3 install --upgrade pip && \
-    pip3 install --no-cache-dir -r requirements.txt 
+RUN $VIRTUAL_ENV/bin/pip install --upgrade pip
+RUN $VIRTUAL_ENV/bin/pip install --no-cache-dir -r requirements.txt  
 
 # Install the project (ensure that frontend projects have been built prior to this step).
 FROM python_libs_sqs

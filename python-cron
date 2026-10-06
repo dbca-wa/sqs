@@ -9,3 +9,4 @@
 
 # Log Rotate
 1 0 * * *  /bin/log_rotate.sh  >> /app/logs/log_rotate.log 2>&1
+0 */1 * * * run-one python manage.py clearsessions >> logs/clearsessions.log 2>&1
