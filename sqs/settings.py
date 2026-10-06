@@ -390,3 +390,9 @@ FILE_UPLOAD_PERMISSIONS = None
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 50  # 15M
 # temporarily add this variable for das-seg chunking request logic, to be removed later when the logic is refactored to not rely on this variable
 REQUEST_CHUNK = env('REQUEST_CHUNK', False)
+GDAL_LIBRARY_PATH = os.environ.get(
+    "GDAL_LIBRARY_PATH",
+)
+GEOS_LIBRARY_PATH = os.environ.get(
+    "GEOS_LIBRARY_PATH",
+)
