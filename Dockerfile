@@ -31,12 +31,12 @@ RUN apt-get clean
 RUN apt-get update
 RUN apt-get upgrade -y
 RUN apt-get install -y run-one
-RUN apt-get install --no-install-recommends -y ssh run-one software-properties-common g++
+RUN apt-get install --no-install-recommends -y g++
 
 # Install GDAL
 # RUN add-apt-repository ppa:ubuntugis/ubuntugis-unstable
 # RUN apt update
-RUN apt-get install --no-install-recommends -y gdal-bin libgdal-dev python3-gdal
+# RUN apt-get install --no-install-recommends -y gdal-bin libgdal-dev python3-gdal
 
 RUN groupadd -g 5000 oim
 RUN useradd -g 5000 -u 5000 oim -s /bin/bash -d /app
