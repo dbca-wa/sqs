@@ -21,6 +21,9 @@ RUN chown container.container /home/container
 RUN cp /root/.bashrc /home/container
 RUN cp /root/.profile /home/container
 
+ENV PYTHONPATH=/usr/local/lib/python3.14
+ENV PYTHONHOME=/usr/local
+
 EXPOSE 8080
 HEALTHCHECK --interval=1m --timeout=5s --start-period=10s --retries=3 CMD ["wget", "-q", "-O", "-", "http://localhost:8080/"]
 CMD ["/startup.sh"]
