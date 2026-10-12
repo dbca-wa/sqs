@@ -1,5 +1,5 @@
 # Prepare the base environment.
-FROM dbcawa/sqs:latest as builder_base_sqsdev
+FROM ghcr.io/dbca-wa/sqs:latest as builder_base_sqsdev
 USER root
 RUN apt-get update
 # RUN apt-get install --no-install-recommends -y npm patch
