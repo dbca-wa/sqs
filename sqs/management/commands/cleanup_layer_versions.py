@@ -21,6 +21,7 @@ import subprocess
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from sqs.components.gisquery.models import GeoJsonFile, Layer, Task
@@ -46,8 +47,8 @@ class Command(BaseCommand):
         parser.add_argument(
             '--min-age-days',
             type=int,
-            default=7,
-            help='Retain all timestamp directories newer than this many days (default: 7).',
+            default=15,
+            help='Retain all timestamp directories newer than this many days (default: 15).',
         )
         parser.add_argument(
             '--layer',
@@ -95,14 +96,15 @@ class Command(BaseCommand):
                 ))
                 continue
 
-            cleanup_directories = self.get_cleanup_directories(layer, data_store, keep_versions, cutoff)
+            cleanup_directories, records_by_directory = self.get_cleanup_directories(
+                layer, data_store, keep_versions, cutoff
+            )
             if not cleanup_directories:
                 continue
 
             for directory in cleanup_directories:
-                file_records = GeoJsonFile.objects.filter(
-                    layer=layer,
-                    geojson_file__startswith=f'{directory.relative_to(data_store).as_posix()}/',
+                file_records = self.get_file_records_for_directory(
+                    layer, directory, data_store, records_by_directory
                 )
                 record_count = file_records.count()
                 directory_size = self.directory_size(directory)
@@ -135,24 +137,24 @@ class Command(BaseCommand):
         )
 
     def get_cleanup_directories(self, layer, data_store, keep_versions, cutoff):
-        layer_directory = data_store / layer.name
+        layer_directory = (data_store / layer.name).resolve()
         if not layer_directory.is_dir():
             self.stdout.write(self.style.WARNING(f'Skipping {layer.name}: directory does not exist.'))
-            return []
+            return [], {}
 
         timestamp_directories = [
-            directory for directory in layer_directory.iterdir()
+            directory.resolve() for directory in layer_directory.iterdir()
             if directory.is_dir() and self.timestamp(directory) is not None
         ]
         records_by_directory = defaultdict(list)
         for file_record in GeoJsonFile.objects.filter(layer=layer).order_by('-id'):
-            record_directory = Path(file_record.geojson_file.path).parent
-            if record_directory.parent == layer_directory and record_directory.is_dir():
+            record_directory = self.get_record_directory(file_record, data_store)
+            if record_directory and record_directory.parent == layer_directory and record_directory.is_dir():
                 records_by_directory[record_directory].append(file_record)
 
         valid_directories = [
             directory for directory in records_by_directory
-            if any(Path(record.geojson_file.path).is_file() for record in records_by_directory[directory])
+            if any(self.record_file_exists(record, data_store) for record in records_by_directory[directory])
         ]
         valid_directories.sort(
             key=lambda directory: max(record.id for record in records_by_directory[directory]),
@@ -165,11 +167,51 @@ class Command(BaseCommand):
 
         if not valid_directories:
             self.stdout.write(self.style.WARNING(f'Skipping {layer.name}: no valid database-backed version exists.'))
-            return []
+            return [], {}
 
-        return sorted(
+        cleanup_dirs = sorted(
             (directory for directory in timestamp_directories if directory not in retained_directories),
             key=self.timestamp,
+        )
+        return cleanup_dirs, records_by_directory
+
+    @staticmethod
+    def get_record_directory(file_record, data_store):
+        try:
+            file_path = Path(file_record.geojson_file.path)
+        except Exception:
+            raw_name = file_record.geojson_file.name or ''
+            file_path = Path(raw_name)
+            if not file_path.is_absolute():
+                file_path = data_store.parent / raw_name
+
+        try:
+            return file_path.parent.resolve()
+        except Exception:
+            return None
+
+    @staticmethod
+    def record_file_exists(record, data_store):
+        try:
+            return Path(record.geojson_file.path).is_file()
+        except Exception:
+            raw_name = record.geojson_file.name or ''
+            p = Path(raw_name)
+            if not p.is_absolute():
+                p = data_store.parent / raw_name
+            return p.is_file()
+
+    def get_file_records_for_directory(self, layer, directory, data_store, records_by_directory=None):
+        record_ids = []
+        if records_by_directory:
+            matching_records = records_by_directory.get(directory.resolve(), [])
+            record_ids = [r.id for r in matching_records]
+
+        relative_pattern = f'{layer.name}/{directory.name}'
+        return GeoJsonFile.objects.filter(layer=layer).filter(
+            Q(geojson_file__contains=f'{relative_pattern}/')
+            | Q(geojson_file__contains=relative_pattern)
+            | Q(id__in=record_ids)
         )
 
     def get_active_task_ids_for_layer(self, layer_name):
