@@ -63,9 +63,13 @@ class HelperUtils():
     def get_layer_names(self, masterlist_questions):
         layer_names = []
         for question_group in masterlist_questions:
-            for question in question_group['questions']:
-                if question['layer']['layer_name'] not in layer_names:
-                    layer_names.append(question['layer']['layer_name'])
+            # for question in question_group['questions']:
+            #     if question['layer']['layer_name'] not in layer_names:
+            #         layer_names.append(question['layer']['layer_name'])
+            for question in question_group.get('questions') or []:
+                layer_name = (question.get('layer') or {}).get('layer_name')
+                if layer_name and layer_name not in layer_names:
+                    layer_names.append(layer_name)
         return layer_names
 
 #    @classmethod 

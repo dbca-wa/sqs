@@ -186,6 +186,9 @@ class Command(BaseCommand):
                     f'Unable to inspect layers for active task {task.id}; cleanup is skipped only when a layer can be identified.'
                 ))
                 continue
+            if layers_in_task is None:
+                self.stdout.write(self.style.WARNING(f'Unable to inspect layers for active task {task.id}.'))
+                continue
             if layer_name in layers_in_task:
                 task_ids.append(task.id)
         return task_ids
