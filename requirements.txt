@@ -7,7 +7,7 @@ django-extensions==3.2.3
 #git+https://github.com/dbca-wa/dpaw-utils.git@0.4.2#egg=dpaw-utils
 git+https://github.com/xzzy/webtemplate2.git#egg=webtemplate_dbca
 git+https://github.com/dbca-wa/dbca-utils@1.1.1#egg=dbca-utils
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.11
 #ipython==7.19.0
 ipython==8.26.0
 django-utils-six==2.0
