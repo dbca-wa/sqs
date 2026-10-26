@@ -125,6 +125,17 @@ class DefaultOperator():
             return [idx for idx, x in enumerate(overlay_result_lower) if x in overlay_result_match]
 
 
+        def numeric_filter(compare):
+            # Layer attributes may be strings (e.g. '2024'); cast to float and skip non-numeric values.
+            idxs = []
+            for idx, x in enumerate(overlay_result):
+                try:
+                    if compare(float(x)):
+                        idxs.append(idx)
+                except (TypeError, ValueError):
+                    continue
+            return idxs
+
         overlay_result = []
         column_name = None
         operator = None
@@ -166,10 +177,10 @@ class DefaultOperator():
                     self.row_filter = [idx for idx,x in enumerate(overlay_result) if str(x).strip() != '']
 
                 elif operator == GREATER_THAN:
-                    self.row_filter = [idx for idx,x in enumerate(overlay_result) if x > float(value)]
+                    self.row_filter = numeric_filter(lambda x: x > float(value))
 
                 elif operator == LESS_THAN:
-                    self.row_filter = [idx for idx,x in enumerate(overlay_result) if x < float(value)]
+                    self.row_filter = numeric_filter(lambda x: x < float(value))
 
                 elif operator == EQUALS:
                     # Old behavior (kept for reference):
