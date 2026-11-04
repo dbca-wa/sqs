@@ -19,7 +19,7 @@ django-reversion-compare==0.15.0
 #django-cron==0.6.0
 git+https://github.com/dbca-wa/django-cron#egg=django-cron
 #djangorestframework==3.12.0
-djangorestframework==3.17.2
+djangorestframework==3.18.2
 djangorestframework-gis==1.0
 djangorestframework-datatables==0.7.2
 pycountry==17.1.8
@@ -76,12 +76,12 @@ git+https://github.com/dbca-wa/appmonitor_client.git#egg=appmonitor_client
 python-decouple==3.8
 
 # setuptools==80.9.0
-setuptools==82.0.0
+setuptools==84.1.0
 # wheel==0.42.0
 wheel==0.46.3
 idna==3.18
 # pillow==12.1.1
-pillow~=12.3.0
+pillow~=13.0.0
 sqlparse~=0.6.0
 ijson==2.6.1
 urllib3~=2.8.0
