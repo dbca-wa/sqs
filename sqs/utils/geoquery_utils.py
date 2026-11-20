@@ -77,17 +77,40 @@ class DisturbanceLayerQueryHelper():
 
         #shapefile_gdf = self.geojson[['geometry']] if 'geometry' in self.geojson else self.geojson
         shapefile_gdf = self.geojson
-        if layer_crs.lower() != shapefile_gdf.crs.srs.lower():
-            # need a common CRS before overlaying shapefile with layer
-            shapefile_gdf.to_crs(layer_crs, inplace=True)
+        logger.info(f'[get_shapefile_gdf] BEFORE conversion: CRS={shapefile_gdf.crs}, bounds={shapefile_gdf.total_bounds}')
+        logger.info(f'[get_shapefile_gdf] target layer_crs={layer_crs}')
+        
+        # Normalize CRS for comparison
+        try:
+            current_crs_str = str(shapefile_gdf.crs.srs) if shapefile_gdf.crs else ''
+            target_crs_str = str(layer_crs) if layer_crs else ''
+            
+            # Case-insensitive comparison
+            if current_crs_str.lower() != target_crs_str.lower():
+                logger.info(f'[get_shapefile_gdf] CRS mismatch detected: {current_crs_str.lower()} != {target_crs_str.lower()}')
+                logger.info(f'[get_shapefile_gdf] Converting from {current_crs_str} to {target_crs_str}')
+                # need a common CRS before overlaying shapefile with layer
+                shapefile_gdf.to_crs(layer_crs, inplace=True)
+                logger.info(f'[get_shapefile_gdf] AFTER conversion: CRS={shapefile_gdf.crs}, bounds={shapefile_gdf.total_bounds}')
+            else:
+                logger.info(f'[get_shapefile_gdf] CRS already matches: {current_crs_str}')
+        except Exception as e:
+            logger.error(f'[get_shapefile_gdf] Error comparing CRS: {e}')
+            # Try conversion anyway
+            try:
+                shapefile_gdf.to_crs(layer_crs, inplace=True)
+                logger.info(f'[get_shapefile_gdf] AFTER fallback conversion: CRS={shapefile_gdf.crs}')
+            except Exception as e2:
+                logger.error(f'[get_shapefile_gdf] Error converting CRS: {e2}')
 
         if 'POLYGON' not in str(shapefile_gdf):
             logger.warn(f'Proposal ID {self.proposal.get("id")}: Uploaded Shapefile/Polygon is NOT a POLYGON\n {shapefile_gdf}.')
 
         try:
-            # if buffer specified in layer definition, increase the perimeter by the buffer amount. Otherwise, 
-            # reduce the perimeter by settings.DEFAULT_BUFFER
-            buffer_size = layer['buffer'] if layer['buffer'] else settings.DEFAULT_BUFFER
+            # if buffer specified in layer definition, use it. Otherwise, use settings.DEFAULT_BUFFER
+            # Must use 'is not None' check instead of truthiness, because buffer=0 is a valid explicit no-buffer setting
+            buffer_size = layer['buffer'] if layer['buffer'] is not None else settings.DEFAULT_BUFFER
+            logger.info(f'[get_shapefile_gdf] buffer_size={buffer_size}')
             if buffer_size and buffer_size != 0:
                 crs_orig =  shapefile_gdf.crs
 
@@ -97,12 +120,14 @@ class DisturbanceLayerQueryHelper():
 
                 # revert to original projection
                 shapefile_buffer_gdf = shapefile_cart_gdf.to_crs(crs_orig)
+                logger.info(f'[get_shapefile_gdf] AFTER buffer: bounds={shapefile_buffer_gdf.total_bounds}')
 
                 return shapefile_buffer_gdf
             
         except Exception as e:
             logger.error(f'Error adding buffer {buffer_size} to polygon.\n{e}')
             
+        logger.info(f'[get_shapefile_gdf] FINAL: CRS={shapefile_gdf.crs}, bounds={shapefile_gdf.total_bounds}')
         return shapefile_gdf
 
     def get_attributes(self, layer_gdf):
@@ -152,8 +177,14 @@ class DisturbanceLayerQueryHelper():
         ''' how = ['intersection','symmetric_difference','difference']
         '''
 
+        logger.info(f'[get_overlay_gdf START] how={how}, column_name={column_name}')
+        logger.info(f'[get_overlay_gdf] layer_gdf: CRS={layer_gdf.crs}, features={len(layer_gdf)}, bounds={layer_gdf.total_bounds}')
+        logger.info(f'[get_overlay_gdf] shapefile_gdf: CRS={shapefile_gdf.crs}, features={len(shapefile_gdf)}, bounds={shapefile_gdf.total_bounds}')
+
         # how='Overlapping' - get layer features 'intersected by' shapefile_gdf
         overlay_gdf = layer_gdf.overlay(shapefile_gdf[['geometry']], how='intersection', keep_geom_type=False)
+        logger.info(f'[get_overlay_gdf] overlay result: {len(overlay_gdf)} features')
+        
         if how=='Outside':
             # all layer features completely outside shapefile_gdf
             overlay_gdf = layer_gdf[~layer_gdf[column_name].isin( overlay_gdf[column_name].unique() )]
@@ -169,6 +200,7 @@ class DisturbanceLayerQueryHelper():
             error_msg = f'Property Name "{column_name}" not found in layer "{layer_name}".\nAvailable properties are "{_list}".'
             logger.error(error_msg)
 
+        logger.info(f'[get_overlay_gdf END] returning {len(overlay_gdf)} features')
         return overlay_gdf
 
     def get_overlay_gdf_generator(self, layer_gdf_gen, shapefile_gdf, how, column_name, layer_name=''):
@@ -176,23 +208,65 @@ class DisturbanceLayerQueryHelper():
         Build overlay results from a layer generator one chunk at a time.
         This avoids loading the full layer into memory before overlaying.
         '''
+        # ORIGINAL CODE - Commented out for reference
+        # overlay_chunks = []
+        # overlay_template = None
+
+        # for idx, split_file, layer_gdf in layer_gdf_gen:
+        #     logger.info(f'[CHUNKED_LAYER_PATH] layer={layer_name} split_file={split_file} idx={idx}')
+        #     print_system_memory_stats(f'Processing split layer chunk {split_file}')
+        #     overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name, layer_name)
+        #     if overlay_template is None:
+        #         overlay_template = overlay_gdf.iloc[0:0].copy()
+        #     if not overlay_gdf.empty:
+        #         overlay_chunks.append(overlay_gdf)
+
+        #     HelperUtils.force_gc([layer_gdf, overlay_gdf])
+
+        # if overlay_chunks:
+        #     return gpd.GeoDataFrame(pd.concat(overlay_chunks, ignore_index=True), crs=shapefile_gdf.crs)
+
+        # return overlay_template if overlay_template is not None else gpd.GeoDataFrame()
+        
+        # ENHANCEMENT: Process ALL chunks without spatial filtering
+        # The original code didn't filter chunks, which was the correct approach.
+        # We process every chunk to ensure we find all intersections regardless of
+        # how the chunks were split spatially.
+        
+        # Debug logging
+        logger.info(f'[get_overlay_gdf_generator START] layer={layer_name}')
+        logger.info(f'[shapefile_gdf] CRS={shapefile_gdf.crs}, bounds={shapefile_gdf.total_bounds}, features={len(shapefile_gdf)}')
+        
         overlay_chunks = []
         overlay_template = None
+        chunks_processed = 0
+        chunks_with_results = 0
 
         for idx, split_file, layer_gdf in layer_gdf_gen:
             logger.info(f'[CHUNKED_LAYER_PATH] layer={layer_name} split_file={split_file} idx={idx}')
             print_system_memory_stats(f'Processing split layer chunk {split_file}')
+            logger.info(f'[chunk_info] idx={idx} features={len(layer_gdf)} bounds={layer_gdf.total_bounds}')
+            
+            chunks_processed += 1
             overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name, layer_name)
             if overlay_template is None:
                 overlay_template = overlay_gdf.iloc[0:0].copy()
             if not overlay_gdf.empty:
                 overlay_chunks.append(overlay_gdf)
+                chunks_with_results += 1
+                logger.info(f'[CHUNK_RESULTS] Chunk {split_file} found {len(overlay_gdf)} intersections')
 
             HelperUtils.force_gc([layer_gdf, overlay_gdf])
+        
+        logger.info(f'[CHUNKED_LAYER_STATS] Processed {chunks_processed} chunks, '
+                   f'{chunks_with_results} chunks with results')
 
         if overlay_chunks:
-            return gpd.GeoDataFrame(pd.concat(overlay_chunks, ignore_index=True), crs=shapefile_gdf.crs)
+            result_gdf = gpd.GeoDataFrame(pd.concat(overlay_chunks, ignore_index=True), crs=shapefile_gdf.crs)
+            logger.info(f'[get_overlay_gdf_generator RESULT] Returning {len(result_gdf)} features')
+            return result_gdf
 
+        logger.info(f'[get_overlay_gdf_generator EMPTY] No chunks with results, returning empty')
         return overlay_template if overlay_template is not None else gpd.GeoDataFrame()
 
     def spatial_join_gbq(self, question, widget_type):
@@ -258,6 +332,13 @@ class DisturbanceLayerQueryHelper():
                         #overlay_gdf = self.get_overlay_gdf(layer_gdf, shapefile_gdf, how, column_name)
                         logger.info(f'USE_LAYER_SPLIT_FILES: {settings.USE_LAYER_SPLIT_FILES}')
                         if settings.USE_LAYER_SPLIT_FILES:
+                            # ORIGINAL CODE - Commented out for reference
+                            # layer_info, layer_gdf_gen = layer_provider.get_layer_generator()
+                            # shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
+                            # overlay_gdf = self.get_overlay_gdf_generator(layer_gdf_gen, shapefile_gdf, how, column_name, layer_name=layer_name)
+                            # layer_gdf = None
+                            
+                            # ENHANCEMENT: Process all chunks to find intersections
                             layer_info, layer_gdf_gen = layer_provider.get_layer_generator()
                             shapefile_gdf = self.get_shapefile_gdf(layer, layer_info['layer_crs'])
                             overlay_gdf = self.get_overlay_gdf_generator(layer_gdf_gen, shapefile_gdf, how, column_name, layer_name=layer_name)
