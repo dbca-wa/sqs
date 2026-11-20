@@ -571,7 +571,7 @@ class DisturbanceLayerQueryHelper():
                             # to avoid missing the original layer details when pop() mutates the layer dict, we use get() instead to read layer_details without mutating the original dict.
                             details = raw_data.get('layer_details', None)
                             # [lbl] - next line 'list' hack for disturbance/components/proposals/api.py 'refresh()' method, when only a single checkbox is selected
-                            layer_details.append(dict(name=name, label=[label], details=details, question=raw_data))
+                            layer_details.append(dict(name=name, label=[label], details=details, question=question))
                         else:
                             #logger.warn(f'Iterating Layers - \'{question["question"][:25]} ...\': operator_response {layer["operator_response"]} not found from layer layer["layer_details"]')
                             pass
